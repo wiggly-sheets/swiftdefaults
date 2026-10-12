@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="SwiftDefaults app icon concept">
+  <title>SwiftDefaults icon concept</title>
+  <desc>Rounded macOS icon: settings window with toggles, slider, and Dock hint.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A4B61"/>
+      <stop offset="1" stop-color="#232E3F"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+  <!-- window -->
+  <rect x="104" y="96" width="304" height="288" rx="28" fill="#F5F6F8"/>
+  <rect x="104" y="96" width="304" height="64" rx="28" fill="#E4E7EC"/>
+  <rect x="104" y="124" width="304" height="36" fill="#E4E7EC"/>
+  <!-- traffic lights -->
+  <circle cx="140" cy="128" r="9" fill="#FF5F57"/>
+  <circle cx="164" cy="128" r="9" fill="#FEBC2E"/>
+  <circle cx="188" cy="128" r="9" fill="#28C840"/>
+  <!-- gear glyph (SF-symbol-like, geometry only) -->
+  <g transform="translate(368,128)" stroke="#8E97A3" stroke-width="7" fill="none" stroke-linecap="round">
+    <circle cx="0" cy="0" r="13"/>
+    <path d="M0 -24v8M0 16v8M-24 0h8M16 0h8M-17 -17l6 6M11 11l6 6M17 -17l-6 6M-11 11l-6 6"/>
+  </g>
+  <!-- row 1: toggle on -->
+  <rect x="136" y="188" width="120" height="14" rx="7" fill="#C7CDD6"/>
+  <rect x="296" y="178" width="80" height="44" rx="22" fill="#0A84FF"/>
+  <circle cx="352" cy="200" r="17" fill="#FFFFFF"/>
+  <!-- row 2: toggle off -->
+  <rect x="136" y="256" width="120" height="14" rx="7" fill="#C7CDD6"/>
+  <rect x="296" y="246" width="80" height="44" rx="22" fill="#D1D1D6"/>
+  <circle cx="318" cy="268" r="17" fill="#FFFFFF"/>
+  <!-- row 3: slider -->
+  <rect x="136" y="324" width="120" height="14" rx="7" fill="#C7CDD6"/>
+  <rect x="296" y="322" width="80" height="10" rx="5" fill="#C7CDD6"/>
+  <circle cx="336" cy="327" r="15" fill="#0A84FF" stroke="#FFFFFF" stroke-width="4"/>
+  <!-- Dock hint -->
+  <rect x="156" y="412" width="200" height="52" rx="16" fill="#FFFFFF" opacity="0.22"/>
+  <rect x="170" y="421" width="34" height="34" rx="9" fill="#0A84FF"/>
+  <rect x="212" y="421" width="34" height="34" rx="9" fill="#30D158"/>
+  <rect x="254" y="421" width="34" height="34" rx="9" fill="#FF9F0A"/>
+  <circle cx="310" cy="438" r="9" fill="#FFFFFF" opacity="0.85"/>
+</svg>

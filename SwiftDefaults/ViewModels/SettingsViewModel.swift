@@ -13,6 +13,7 @@ enum RegistryError: Error, LocalizedError {
 final class SettingsViewModel: ObservableObject {
     @Published private(set) var settings: [DefaultSetting] = []
     @Published private(set) var isOn: [String: Bool] = [:]
+    @Published private(set) var currentValues: [String: String] = [:]
     @Published var selectedCategory = "All"
     @Published var searchText = ""
     @Published private(set) var errorMessage: String?
@@ -23,6 +24,19 @@ final class SettingsViewModel: ObservableObject {
 
     var categories: [String] {
         ["All"] + Set(settings.map(\.category)).sorted()
+    }
+
+    private static let categoryGroups: [(name: String, categories: [String])] = [
+        ("System", ["Appearance", "Desktop", "Dock", "Finder", "Menu Bar", "Screenshots", "Window Manager", "Mission Control", "Miscellaneous", "Windows"]),
+        ("Input", ["Keyboard", "Trackpad", "Mouse"]),
+        ("Apps", ["Xcode", "TextEdit", "Safari", "Activity Monitor", "Feedback Assistant", "Simulator", "Time Machine", "Messages"]),
+    ]
+
+    var groupedCategories: [(name: String, categories: [String])] {
+        let present = Set(settings.map(\.category))
+        return Self.categoryGroups.map { group in
+            (group.name, group.categories.filter { present.contains($0) })
+        }.filter { !$0.categories.isEmpty }
     }
 
     var filteredSettings: [DefaultSetting] {
@@ -57,8 +71,10 @@ final class SettingsViewModel: ObservableObject {
             do {
                 if let current = try await DefaultsEngine.read(domain: setting.domain, key: setting.key) {
                     isOn[setting.id] = (current == canonicalString(setting.onValue))
+                    currentValues[setting.id] = current
                 } else {
                     isOn[setting.id] = false
+                    currentValues[setting.id] = canonicalString(setting.offValue)
                 }
             } catch {
                 errorMessage = error.localizedDescription
@@ -71,8 +87,47 @@ final class SettingsViewModel: ObservableObject {
         do {
             try await DefaultsEngine.write(on ? setting.onValue : setting.offValue, for: setting)
             isOn[setting.id] = on
+            currentValues[setting.id] = canonicalString(on ? setting.onValue : setting.offValue)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Writes a non-boolean value given its canonical string form.
+    func applyOption(_ setting: DefaultSetting, stringValue: String) async {
+        guard let value = value(for: setting, stringValue: stringValue) else {
+            errorMessage = "Could not parse value for \(setting.id)"
+            return
+        }
+        await captureOriginal(setting)
+        do {
+            try await DefaultsEngine.write(value, for: setting)
+            currentValues[setting.id] = stringValue
+            isOn[setting.id] = (stringValue == canonicalString(setting.onValue))
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Canonical form matching `defaults read` output (booleans print as 1/0).
+    func displayString(_ value: SettingValue) -> String {
+        canonicalString(value)
+    }
+
+    private func value(for setting: DefaultSetting, stringValue: String) -> SettingValue? {
+        switch setting.type {
+        case .boolean:
+            if stringValue == "1" { return .boolean(true) }
+            if stringValue == "0" { return .boolean(false) }
+            return nil
+        case .integer:
+            guard let number = Int(stringValue) else { return nil }
+            return .integer(number)
+        case .string:
+            return .string(stringValue)
+        case .float:
+            guard let number = Double(stringValue) else { return nil }
+            return .float(number)
         }
     }
 
@@ -85,19 +140,24 @@ final class SettingsViewModel: ObservableObject {
                 if original == canonicalString(setting.onValue) {
                     try await DefaultsEngine.write(setting.onValue, for: setting)
                     isOn[setting.id] = true
+                    currentValues[setting.id] = original
                 } else if original == canonicalString(setting.offValue) {
                     try await DefaultsEngine.write(setting.offValue, for: setting)
                     isOn[setting.id] = false
+                    currentValues[setting.id] = original
                 } else if let fallback = setting.defaultValue {
                     try await DefaultsEngine.write(fallback, for: setting)
                     isOn[setting.id] = (fallback == setting.onValue)
+                    currentValues[setting.id] = canonicalString(fallback)
                 } else {
                     try await DefaultsEngine.delete(domain: setting.domain, key: setting.key)
                     isOn[setting.id] = false
+                    currentValues[setting.id] = canonicalString(setting.offValue)
                 }
             } else {
                 try await DefaultsEngine.delete(domain: setting.domain, key: setting.key)
                 isOn[setting.id] = false
+                currentValues[setting.id] = canonicalString(setting.offValue)
             }
         } catch {
             errorMessage = error.localizedDescription
