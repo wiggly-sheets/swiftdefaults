@@ -7,13 +7,34 @@ struct ContentView: View {
         NavigationSplitView {
             SidebarView()
         } detail: {
-            List(viewModel.filteredSettings) { setting in
-                SettingRowView(setting: setting)
+            ZStack {
+                List(viewModel.filteredSettings) { setting in
+                    SettingRowView(setting: setting)
+                }
+                .searchable(text: $viewModel.searchText)
+                .navigationTitle(viewModel.selectedCategory)
+                .task {
+                    await viewModel.load()
+                }
+                if viewModel.isLoading {
+                    ProgressView()
+                        .controlSize(.large)
+                }
             }
-            .searchable(text: $viewModel.searchText)
-            .navigationTitle(viewModel.selectedCategory)
-            .task {
-                await viewModel.load()
+            .alert(
+                "Something went wrong",
+                isPresented: Binding(
+                    get: { viewModel.errorMessage != nil },
+                    set: { presented in
+                        if !presented {
+                            viewModel.clearError()
+                        }
+                    }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.errorMessage ?? "")
             }
         }
     }
