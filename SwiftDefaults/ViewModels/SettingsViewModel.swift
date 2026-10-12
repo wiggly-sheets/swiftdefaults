@@ -131,10 +131,17 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func loadRegistry() throws -> [DefaultSetting] {
-        guard let url = Bundle.main.url(forResource: "tweaks", withExtension: "json") else {
-            throw RegistryError.missingFile
+        #if SWIFT_PACKAGE
+        let bundles = [Bundle.module, Bundle.main]
+        #else
+        let bundles = [Bundle.main]
+        #endif
+        for bundle in bundles {
+            if let url = bundle.url(forResource: "tweaks", withExtension: "json") {
+                let data = try Data(contentsOf: url)
+                return try JSONDecoder().decode([DefaultSetting].self, from: data)
+            }
         }
-        let data = try Data(contentsOf: url)
-        return try JSONDecoder().decode([DefaultSetting].self, from: data)
+        throw RegistryError.missingFile
     }
 }

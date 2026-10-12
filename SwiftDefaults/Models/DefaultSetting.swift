@@ -57,4 +57,5 @@ struct DefaultSetting: Codable, Identifiable, Sendable {
     let defaultValue: SettingValue?
     let requiresRelaunch: Bool?
     let appToRestart: String?
+    let options: [SettingValue]?
 }
