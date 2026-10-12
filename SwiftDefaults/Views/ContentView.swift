@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
+    @State private var isApplying = false
 
     var body: some View {
         NavigationSplitView {
@@ -16,7 +17,35 @@ struct ContentView: View {
                 .task {
                     await viewModel.load()
                 }
-                if viewModel.isLoading {
+                .toolbar {
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        if viewModel.hasPending {
+                            Text("\(viewModel.pendingValues.count) pending")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Button("Reset") {
+                            Task { @MainActor in
+                                isApplying = true
+                                defer { isApplying = false }
+                                await viewModel.resetAll()
+                            }
+                        }
+                        .disabled(viewModel.isResetDisabled || isApplying)
+                        .help("Discard pending edits and restore originals")
+                        Button("Apply") {
+                            Task { @MainActor in
+                                isApplying = true
+                                defer { isApplying = false }
+                                await viewModel.applyPending()
+                            }
+                        }
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(!viewModel.hasPending || isApplying)
+                        .help("Write all pending edits")
+                    }
+                }
+                if viewModel.isLoading || isApplying {
                     ProgressView()
                         .controlSize(.large)
                 }

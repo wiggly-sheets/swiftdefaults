@@ -18,6 +18,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var searchText = ""
     @Published private(set) var errorMessage: String?
     @Published private(set) var isLoading = false
+    @Published private(set) var pendingValues: [String: String] = [:]
 
     private var originalValues: [String: String] = [:]
     private var capturedIds: Set<String> = []
@@ -47,18 +48,110 @@ final class SettingsViewModel: ObservableObject {
 
     var filteredSettings: [DefaultSetting] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if query.isEmpty {
+            if selectedCategory == "All" { return settings }
+            return settings.filter { $0.category == selectedCategory }
+        }
         return settings.filter { setting in
-            let matchesCategory = selectedCategory == "All" || setting.category == selectedCategory
-            let matchesSearch = query.isEmpty
-                || setting.title.localizedCaseInsensitiveContains(query)
+            setting.title.localizedCaseInsensitiveContains(query)
                 || setting.description.localizedCaseInsensitiveContains(query)
                 || setting.key.localizedCaseInsensitiveContains(query)
-            return matchesCategory && matchesSearch
+                || setting.category.localizedCaseInsensitiveContains(query)
+                || setting.domain.localizedCaseInsensitiveContains(query)
+                || setting.id.localizedCaseInsensitiveContains(query)
         }
     }
 
     func canRevert(_ setting: DefaultSetting) -> Bool {
         capturedIds.contains(setting.id)
+    }
+
+    var hasPending: Bool { !pendingValues.isEmpty }
+
+    var canRevertAll: Bool { !capturedIds.isEmpty }
+
+    var isResetDisabled: Bool { pendingValues.isEmpty && capturedIds.isEmpty }
+
+    /// Display value: staged pending edit wins over last applied state.
+    func stagedString(_ setting: DefaultSetting) -> String {
+        pendingValues[setting.id]
+            ?? currentValues[setting.id]
+            ?? canonicalString(setting.offValue)
+    }
+
+    func stagedIsOn(_ setting: DefaultSetting) -> Bool {
+        if let pending = pendingValues[setting.id] {
+            return matchesOn(current: pending, onValue: setting.onValue)
+        }
+        return isOn[setting.id] ?? false
+    }
+
+    /// Stage a boolean edit locally; no disk write until applyPending.
+    func stage(_ setting: DefaultSetting, on: Bool) {
+        let staged = canonicalString(on ? setting.onValue : setting.offValue)
+        if staged == currentValues[setting.id] {
+            pendingValues.removeValue(forKey: setting.id)
+        } else {
+            pendingValues[setting.id] = staged
+        }
+    }
+
+    /// Stage a non-boolean edit locally; validates without writing.
+    func stageOption(_ setting: DefaultSetting, stringValue: String) {
+        guard value(for: setting, stringValue: stringValue) != nil else {
+            errorMessage = "Could not parse value for \(setting.id)"
+            return
+        }
+        if stringValue == currentValues[setting.id] {
+            pendingValues.removeValue(forKey: setting.id)
+        } else {
+            pendingValues[setting.id] = stringValue
+        }
+    }
+
+    func discardPending() {
+        pendingValues = [:]
+    }
+
+    /// Writes all staged edits, clears pending, keeps failures staged.
+    @discardableResult
+    func applyPending() async -> Bool {
+        let staged = pendingValues
+        guard !staged.isEmpty else { return true }
+        var failed: [String: String] = [:]
+        var lastError: String?
+        for (id, stringValue) in staged {
+            guard let setting = settings.first(where: { $0.id == id }) else { continue }
+            guard let parsed = value(for: setting, stringValue: stringValue) else {
+                failed[id] = stringValue
+                lastError = "Could not parse value for \(id)"
+                continue
+            }
+            await captureOriginal(setting)
+            do {
+                try await DefaultsEngine.write(parsed, for: setting)
+                currentValues[id] = canonicalString(parsed)
+                isOn[id] = matchesOn(current: stringValue, onValue: setting.onValue)
+            } catch {
+                failed[id] = stringValue
+                lastError = error.localizedDescription
+            }
+        }
+        pendingValues = failed
+        errorMessage = lastError
+        return failed.isEmpty
+    }
+
+    /// Discards pending edits, restores originals for applied tweaks.
+    @discardableResult
+    func resetAll() async -> Bool {
+        pendingValues = [:]
+        var ok = true
+        for id in capturedIds {
+            guard let setting = settings.first(where: { $0.id == id }) else { continue }
+            if await revert(setting) == false { ok = false }
+        }
+        return ok
     }
 
     func load() async {
@@ -110,6 +203,7 @@ final class SettingsViewModel: ObservableObject {
         }
         isOn = newIsOn
         currentValues = newCurrent
+        pendingValues = [:]
         if let lastError {
             errorMessage = lastError
         } else {
@@ -198,6 +292,7 @@ final class SettingsViewModel: ObservableObject {
                 currentValues[setting.id] = canonicalString(setting.offValue)
             }
             errorMessage = nil
+            pendingValues.removeValue(forKey: setting.id)
             return true
         } catch {
             errorMessage = error.localizedDescription

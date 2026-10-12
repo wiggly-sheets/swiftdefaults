@@ -4,9 +4,6 @@ struct SettingRowView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
     let setting: DefaultSetting
     @State private var draft: String?
-    @State private var work: Task<Void, Never>?
-    @State private var pending = false
-    @State private var stepValue: Double?
     @FocusState private var textFocused: Bool
 
     var body: some View {
@@ -29,29 +26,17 @@ struct SettingRowView: View {
             Spacer()
             if viewModel.canRevert(setting) {
                 Button("Revert") {
-                    launch {
+                    Task { @MainActor in
                         if await viewModel.revert(setting) {
                             draft = nil
-                            stepValue = nil
                         }
                     }
                 }
                 .help("Restore the value from before the first change")
-                .disabled(pending)
             }
             control
         }
         .padding(.vertical, 4)
-    }
-
-    /// Serializes writes per row: cancels the prior in-flight write.
-    private func launch(_ operation: @escaping @MainActor () async -> Void) {
-        work?.cancel()
-        work = Task { @MainActor in
-            pending = true
-            defer { pending = false }
-            await operation()
-        }
     }
 
     @ViewBuilder
@@ -59,11 +44,10 @@ struct SettingRowView: View {
         if setting.type == .boolean {
             Toggle("", isOn: Binding(
                 get: { isEnabled },
-                set: { on in launch { await viewModel.apply(setting, on: on) } }
+                set: { viewModel.stage(setting, on: $0) }
             ))
             .labelsHidden()
             .toggleStyle(.switch)
-            .disabled(pending)
         } else if let options = setting.options {
             let tags = options.map { viewModel.displayString($0) }
             if tags.count <= 3 {
@@ -81,34 +65,27 @@ struct SettingRowView: View {
             .labelsHidden()
             .frame(maxWidth: 200)
             .focused($textFocused)
-            .disabled(pending)
             .onSubmit { commitText() }
             .onChange(of: textFocused) { _, focused in
                 if !focused, draft != nil {
                     commitText()
                 }
             }
+            .onChange(of: currentString) { _, _ in
+                draft = nil
+            }
         } else {
             Stepper(
                 value: Binding(
-                    get: { stepValue ?? Double(currentString) ?? numericRange.lowerBound },
-                    set: { stepValue = $0 }
+                    get: { Double(currentString) ?? numericRange.lowerBound },
+                    set: { commitStep($0) }
                 ),
                 in: numericRange,
-                step: setting.type == .integer ? 1 : 0.5,
-                onEditingChanged: { editing in
-                    if !editing {
-                        commitStep()
-                    }
-                }
+                step: setting.type == .integer ? 1 : 0.5
             ) {
                 Text(viewModel.displayString(stepDisplayValue))
                     .monospacedDigit()
                     .frame(minWidth: 44, alignment: .trailing)
-            }
-            .disabled(pending)
-            .onChange(of: currentString) { _, _ in
-                stepValue = nil
             }
         }
     }
@@ -116,7 +93,7 @@ struct SettingRowView: View {
     private func optionPicker(tags: [String]) -> some View {
         Picker("", selection: Binding(
             get: { currentString },
-            set: { value in launch { await viewModel.applyOption(setting, stringValue: value) } }
+            set: { viewModel.stageOption(setting, stringValue: $0) }
         )) {
             ForEach(tags, id: \.self) { option in
                 Text(option).tag(option)
@@ -128,26 +105,17 @@ struct SettingRowView: View {
         }
         .labelsHidden()
         .frame(maxWidth: 220)
-        .disabled(pending)
     }
 
     private func commitText() {
         let text = draft ?? currentString
-        launch {
-            if await viewModel.applyOption(setting, stringValue: text) {
-                draft = nil
-            }
-        }
+        viewModel.stageOption(setting, stringValue: text)
+        draft = nil
     }
 
-    private func commitStep() {
-        let staged = stepValue ?? Double(currentString) ?? numericRange.lowerBound
+    private func commitStep(_ staged: Double) {
         let text = setting.type == .integer ? String(Int(staged)) : String(staged)
-        launch {
-            if await viewModel.applyOption(setting, stringValue: text) {
-                stepValue = nil
-            }
-        }
+        viewModel.stageOption(setting, stringValue: text)
     }
 
     /// Clamp from the declared options when present, else a wide safe range.
@@ -173,7 +141,7 @@ struct SettingRowView: View {
     }
 
     private var stepDisplayValue: SettingValue {
-        let staged = stepValue ?? Double(currentString) ?? numericRange.lowerBound
+        let staged = Double(currentString) ?? numericRange.lowerBound
         if setting.type == .integer {
             return .integer(Int(staged))
         }
@@ -181,10 +149,10 @@ struct SettingRowView: View {
     }
 
     private var isEnabled: Bool {
-        viewModel.isOn[setting.id] ?? false
+        viewModel.stagedIsOn(setting)
     }
 
     private var currentString: String {
-        viewModel.currentValues[setting.id] ?? viewModel.displayString(setting.offValue)
+        viewModel.stagedString(setting)
     }
 }
