@@ -11,3 +11,17 @@ build/
 
 # macOS
 .DS_Store
+
+# Build artifacts
+*.app/
+SwiftDefaults.app/
+SwiftDefaults-Debug.app/
+
+# Icon workfiles (keep tracked AppIcon.icns)
+*.iconset/
+
+# Stray shell-output capture
+nu
+
+# Stray readme copy (keep README.md)
+swiftdefaults.md
