@@ -10,9 +10,9 @@
   </p>
 
 <p>
-  <a href="https://github.com/YOUR-USER/swiftdefaults/actions"><img src="https://img.shields.io/badge/build-not_set_up_yet-lightgrey" alt="Build status placeholder" /></a>
-  <a href="#license"><img src="https://img.shields.io/badge/license-TODO-lightgrey" alt="License: TODO" /></a>
-  <a href="https://github.com/YOUR-USER/swiftdefaults/releases/latest"><img src="https://img.shields.io/badge/release-pre_release-orange" alt="Pre-release" /></a>
+  <a href="https://github.com/wiggly-sheets/swiftdefaults/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen" alt="Build status" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
+  <a href="https://github.com/wiggly-sheets/swiftdefaults/releases/latest"><img src="https://img.shields.io/badge/release-1.0.0-orange" alt="Release 1.0.0" /></a>
 </p>
 
   <p>
@@ -36,8 +36,8 @@ Your Mac hides dozens of useful settings behind `defaults write` commands. Swift
 
 You do not need to know what a domain or plist key is. But if you want to check, each row names its domain and key, so anything can be verified with `defaults read` first.
 
-> [!CAUTION]
-> Pre-release. There is no signed DMG or Homebrew cask yet. Build from source for now; see [Roadmap](#roadmap).
+> [!NOTE]
+> SwiftDefaults 1.0.0 is released. Download the signed DMG below, or install via Homebrew.
 
 ---
 
@@ -79,10 +79,13 @@ You do not need to know what a domain or plist key is. But if you want to check,
 
 ## Download
 
-> [!NOTE]
-> No downloadable release exists yet. Signed DMG and Homebrew are on the [Roadmap](#roadmap).
+Download the signed DMG for macOS 15+ (Apple Silicon) from the [Releases page](https://github.com/wiggly-sheets/swiftdefaults/releases).
 
-Until then, [build from source](#build-from-source) — it takes two commands.
+Or install via Homebrew:
+
+```bash
+brew install --cask wiggly-sheets/homebrew-tap/swiftdefaults
+```
 
 ---
 
@@ -93,7 +96,7 @@ Two ways to run SwiftDefaults: a double-clickable `.app` bundle, or straight fro
 ### Run from terminal (fastest)
 
 ```bash
-git clone https://github.com/YOUR-USER/swiftdefaults.git
+git clone https://github.com/wiggly-sheets/swiftdefaults.git
 cd swiftdefaults
 make run
 ```
@@ -146,7 +149,7 @@ Your revert history is per-launch (in memory), so updating resets it. Applied sy
 ### Step 1: Clone the repo
 
 ```bash
-git clone https://github.com/YOUR-USER/swiftdefaults.git
+git clone https://github.com/wiggly-sheets/swiftdefaults.git
 cd swiftdefaults
 ```
 
@@ -225,8 +228,8 @@ Found a wrong default value or a risky entry? Please open an issue with the twea
 
 ## Roadmap
 
-- [ ] Signed + notarized DMG on GitHub Releases
-- [ ] Homebrew cask
+- [x] Signed + notarized DMG on GitHub Releases
+- [x] Homebrew cask
 - [ ] Test suite (`swift test`)
 - [ ] Dry-run preview (show command before executing)
 - [ ] Import/export profiles
@@ -235,7 +238,7 @@ Found a wrong default value or a risky entry? Please open an issue with the twea
 
 ## License
 
-TODO: pick a license (e.g. MIT) and add a `LICENSE` file. This section will link it once chosen.
+This project is licensed under [MIT](LICENSE).
 
 ---
 
