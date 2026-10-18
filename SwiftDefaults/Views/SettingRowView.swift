@@ -11,6 +11,7 @@ struct SettingRowView: View {
             Circle()
                 .fill(isEnabled ? .green : .gray)
                 .frame(width: 8, height: 8)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 Text(setting.title)
                     .font(.headline)
@@ -19,6 +20,10 @@ struct SettingRowView: View {
                     .foregroundStyle(.secondary)
                 if let app = setting.appToRestart {
                     Text("Takes effect after \(app) relaunches.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                } else if setting.requiresRelaunch == true {
+                    Text("Takes effect after relaunch or logout.")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -32,7 +37,9 @@ struct SettingRowView: View {
                         }
                     }
                 }
+                .disabled(viewModel.isApplying)
                 .help("Restore the value from before the first change")
+                .accessibilityLabel("Revert \(setting.title)")
             }
             control
         }
@@ -48,14 +55,20 @@ struct SettingRowView: View {
             ))
             .labelsHidden()
             .toggleStyle(.switch)
+            .accessibilityLabel(setting.title)
         } else if let options = setting.options {
             let tags = options.map { viewModel.displayString($0) }
-            if tags.count <= 3 {
-                optionPicker(tags: tags)
-                    .pickerStyle(.segmented)
-            } else {
-                optionPicker(tags: tags)
-                    .pickerStyle(.menu)
+            HStack(spacing: 8) {
+                if tags.count <= 3 {
+                    optionPicker(tags: tags)
+                        .pickerStyle(.segmented)
+                } else {
+                    optionPicker(tags: tags)
+                        .pickerStyle(.menu)
+                }
+                if setting.isFolderSetting {
+                    chooseFolderButton
+                }
             }
         } else if setting.type == .string {
             TextField("", text: Binding(
@@ -64,6 +77,7 @@ struct SettingRowView: View {
             ))
             .labelsHidden()
             .frame(maxWidth: 200)
+            .accessibilityLabel(setting.title)
             .focused($textFocused)
             .onSubmit { commitText() }
             .onChange(of: textFocused) { _, focused in
@@ -87,6 +101,7 @@ struct SettingRowView: View {
                     .monospacedDigit()
                     .frame(minWidth: 44, alignment: .trailing)
             }
+            .accessibilityLabel(setting.title)
         }
     }
 
@@ -105,6 +120,7 @@ struct SettingRowView: View {
         }
         .labelsHidden()
         .frame(maxWidth: 220)
+        .accessibilityLabel(setting.title)
     }
 
     private func commitText() {
@@ -113,8 +129,51 @@ struct SettingRowView: View {
         draft = nil
     }
 
+    private var chooseFolderButton: some View {
+        Button("Choose…") { chooseFolder() }
+            .help("Choose any folder, not just the listed options")
+            .accessibilityLabel("Choose folder for \(setting.title)")
+    }
+
+    /// `begin` rather than `runModal`: it leaves the run loop free, so the rest of the
+    /// window keeps drawing while the panel is up. The app is unsandboxed, so the plain
+    /// path the panel returns goes straight to `defaults` — no bookmark, nothing persisted.
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.title = "Choose Folder"
+        panel.directoryURL = startingDirectory
+        panel.begin { response in
+            guard response == .OK, let chosen = panel.url?.path else { return }
+            viewModel.stageOption(
+                setting,
+                stringValue: DefaultSetting.stagedFolderValue(
+                    options: setting.folderOptions,
+                    chosenPath: chosen
+                )
+            )
+        }
+    }
+
+    /// Panel start point: the staged value's folder when it exists on disk, else nil so
+    /// the panel opens where it last was.
+    private var startingDirectory: URL? {
+        let expanded = (currentString as NSString).expandingTildeInPath
+        guard expanded.hasPrefix("/") else { return nil }
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: expanded, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else { return nil }
+        return URL(fileURLWithPath: expanded)
+    }
+
     private func commitStep(_ staged: Double) {
-        let text = setting.type == .integer ? String(Int(staged)) : String(staged)
+        let text = setting.type == .integer
+            ? String(safeInt(staged))
+            : (staged == staged.rounded() ? String(safeInt(staged)) : String(staged))
         viewModel.stageOption(setting, stringValue: text)
     }
 
@@ -143,9 +202,19 @@ struct SettingRowView: View {
     private var stepDisplayValue: SettingValue {
         let staged = Double(currentString) ?? numericRange.lowerBound
         if setting.type == .integer {
-            return .integer(Int(staged))
+            return .integer(safeInt(staged))
         }
         return .float(staged)
+    }
+
+    /// `Int(_:)` traps on NaN, infinity, and values beyond Int range, and this runs while
+    /// drawing the row. Clamp to the control's own bounds instead.
+    private func safeInt(_ number: Double) -> Int {
+        if let exact = Int(exactly: number) { return exact }
+        let clamped = number.isNaN
+            ? numericRange.lowerBound
+            : min(max(number, numericRange.lowerBound), numericRange.upperBound)
+        return Int(exactly: clamped) ?? 0
     }
 
     private var isEnabled: Bool {
