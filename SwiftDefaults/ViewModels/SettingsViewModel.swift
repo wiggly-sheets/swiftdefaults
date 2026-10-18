@@ -344,7 +344,7 @@ final class SettingsViewModel: ObservableObject {
         var firstError: String?
         let all = settings
         let byId = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
-        // One `defaults read <domain>` spawn covers every entry in that domain.
+        // One `defaults export <domain>` spawn covers every entry in that domain.
         // `kCFPreferencesAnyApplication` is a CFPreferences pseudo-domain with no domain
         // of its own to read, so its entries stay on the per-key path.
         let pseudoDomain = "kCFPreferencesAnyApplication"
@@ -414,7 +414,7 @@ final class SettingsViewModel: ObservableObject {
         return results
     }
 
-    /// Canonical form matching `defaults read` output (booleans print as 1/0).
+    /// Canonical form for display, matching what `stage` puts in `pendingValues`.
     func displayString(_ value: SettingValue) -> String {
         canonicalString(value)
     }
@@ -422,9 +422,7 @@ final class SettingsViewModel: ObservableObject {
     private func value(for setting: DefaultSetting, stringValue: String) -> SettingValue? {
         switch setting.type {
         case .boolean:
-            if stringValue == "1" { return .boolean(true) }
-            if stringValue == "0" { return .boolean(false) }
-            return nil
+            return boolean(stringValue).map(SettingValue.boolean)
         case .integer:
             guard let number = Int(stringValue) else { return nil }
             return .integer(number)
@@ -433,6 +431,17 @@ final class SettingsViewModel: ObservableObject {
         case .float:
             guard let number = Double(stringValue), number.isFinite else { return nil }
             return .float(number)
+        }
+    }
+
+    /// `defaults read` prints a boolean as 1/0 in some domains and as true/false in
+    /// others — `com.apple.finder CreateDesktop` prints `true`, `com.apple.dock
+    /// autohide` prints `1` — so both spellings parse, whichever path read the value.
+    private func boolean(_ text: String) -> Bool? {
+        switch text {
+        case "1", "true": return true
+        case "0", "false": return false
+        default: return nil
         }
     }
 
@@ -521,11 +530,12 @@ final class SettingsViewModel: ObservableObject {
         canonicalString(setting.defaultValue ?? setting.offValue)
     }
 
-    /// Numeric-aware comparison: `defaults read` prints 0.0 as "0".
+    /// Numeric-aware comparison: `defaults read` prints 0.0 as "0", and a boolean as
+    /// either "1" or "true" depending on the domain.
     func matchesOn(current: String, onValue: SettingValue) -> Bool {
         switch onValue {
         case .boolean(let enabled):
-            current == (enabled ? "1" : "0")
+            boolean(current) == enabled
         case .integer(let number):
             Int(current) == number
         case .float(let number):
@@ -535,8 +545,8 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    /// Canonical form matching `defaults read` output (booleans print as 1/0,
-    /// whole floats print without the fraction: 0.0 reads back as "0").
+    /// Canonical form the app itself stages: booleans as 1/0, whole floats
+    /// without the fraction (0.0 becomes "0").
     private func canonicalString(_ value: SettingValue) -> String {
         switch value {
         case .boolean(let enabled):

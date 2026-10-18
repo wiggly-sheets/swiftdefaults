@@ -37,13 +37,16 @@ enum DefaultsEngine {
         throw DefaultsError.writeFailed(status, output)
     }
 
-    /// Bulk `defaults read <domain>`: every key the domain holds, in one spawn.
+    /// Bulk `defaults export <domain> -`: every key the domain holds, in one spawn.
+    /// Export, not `read`: `defaults read` prints old-style plist, where an NSData
+    /// value prints as `{length = 684, bytes = 0x...}` and the whole output stops
+    /// parsing. `export` emits the same data as XML plist, which parses cleanly.
     /// A key the domain does not have is simply absent from the result, which is the
     /// normal state for an unset setting, so a missing domain is not an error either.
     /// Throws `unreadableDomain` only when the output will not parse, so the caller can
     /// fall back to per-key reads instead of reporting failures.
     static func readDomain(_ domain: String) async throws -> [String: String] {
-        let (status, output) = try await run(arguments: ["read", domain])
+        let (status, output) = try await run(arguments: ["export", domain, "-"])
         if status != 0 {
             guard indicatesAbsent(output) else { throw DefaultsError.writeFailed(status, output) }
             return [:]
@@ -58,18 +61,34 @@ enum DefaultsEngine {
     }
 
     /// Renders a parsed plist value the way `defaults read <domain> <key>` prints it.
+    /// Foundation cannot write openstep, so container text is hand-rolled: a caller's
+    /// plist-container guard keys off the leading `{` or `(` and must never see `""`.
     private static func rendered(_ value: Any) -> String {
         switch value {
         case let text as String:
             return text
         case let number as NSNumber:
-            return CFNumberIsFloatType(number) ? String(number.doubleValue) : number.stringValue
+            guard CFNumberIsFloatType(number) else { return number.stringValue }
+            // `defaults read` prints a whole float without the fraction, 100.0 as "100",
+            // and that is the form `SettingsViewModel.canonicalString` stages.
+            let double = number.doubleValue
+            guard double.isFinite, double == double.rounded(), let whole = Int(exactly: double) else {
+                return String(double)
+            }
+            return String(whole)
+        case let data as Data:
+            return "{ length = \(data.count) }"
+        case let pairs as [String: Any]:
+            let body = pairs.keys.sorted().compactMap { key -> String? in
+                pairs[key].map { "\(key) = \(rendered($0));" }
+            }
+            return "{ \(body.joined(separator: " ")) }"
+        case let items as [Any]:
+            return "( \(items.map(rendered).joined(separator: ", ")) )"
         default:
-            // Dictionaries and arrays return to their openstep text so a caller's
-            // plist-container guard still sees a leading "{" or "(".
-            let data = try? PropertyListSerialization.data(fromPropertyList: value, format: .openStep, options: 0)
-            return String(data: data ?? Data(), encoding: .utf8)?
-                .trimmingCharacters(in: .newlines) ?? ""
+            // NSDate and anything else opaque: still a container marker, so the guard
+            // refuses to capture it as a String rather than losing the value flat.
+            return "{ \(value) }"
         }
     }
 
