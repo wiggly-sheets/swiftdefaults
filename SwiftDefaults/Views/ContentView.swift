@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
-    @State private var isApplying = false
 
     var body: some View {
         NavigationSplitView {
@@ -12,8 +11,9 @@ struct ContentView: View {
                 List(viewModel.filteredSettings) { setting in
                     SettingRowView(setting: setting)
                 }
+                .disabled(viewModel.isApplying)
                 .searchable(text: $viewModel.searchText)
-                .navigationTitle(viewModel.selectedCategory)
+                .navigationTitle(viewModel.selectedCategory ?? "All")
                 .task {
                     await viewModel.load()
                 }
@@ -25,29 +25,22 @@ struct ContentView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Button("Reset") {
-                            Task { @MainActor in
-                                isApplying = true
-                                defer { isApplying = false }
-                                await viewModel.resetAll()
-                            }
+                            Task { await viewModel.resetAll() }
                         }
-                        .disabled(viewModel.isResetDisabled || isApplying)
+                        .disabled(viewModel.isResetDisabled || viewModel.isApplying)
                         .help("Discard pending edits and restore originals")
                         Button("Apply") {
-                            Task { @MainActor in
-                                isApplying = true
-                                defer { isApplying = false }
-                                await viewModel.applyPending()
-                            }
+                            Task { await viewModel.applyPending() }
                         }
                         .keyboardShortcut(.defaultAction)
-                        .disabled(!viewModel.hasPending || isApplying)
+                        .disabled(!viewModel.hasPending || viewModel.isApplying)
                         .help("Write all pending edits")
                     }
                 }
-                if viewModel.isLoading || isApplying {
+                if viewModel.isLoading || viewModel.isApplying {
                     ProgressView()
                         .controlSize(.large)
+                        .accessibilityLabel("Working")
                 }
             }
             .alert(

@@ -3,16 +3,34 @@ import SwiftUI
 struct SidebarView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
     @State private var expandedGroups: Set<String> = ["System", "Input", "Apps"]
+    /// Split categories start open, so this holds the ones the user closed.
+    @State private var collapsedCategories: Set<String> = []
 
     var body: some View {
         List(selection: $viewModel.selectedCategory) {
             Label("All", systemImage: "square.grid.2x2")
-                .tag("All")
-            ForEach(viewModel.groupedCategories, id: \.name) { group in
-                DisclosureGroup(isExpanded: binding(for: group.name)) {
-                    ForEach(group.categories, id: \.self) { category in
-                        Label(category, systemImage: icon(for: category))
-                            .tag(category)
+                .tag(nil as String?)
+            ForEach(viewModel.groupedCategories) { group in
+                DisclosureGroup(isExpanded: groupBinding(for: group.name)) {
+                    ForEach(group.categories) { category in
+                        if category.subcategories.isEmpty {
+                            Label(category.name, systemImage: icon(for: category.name))
+                                .tag(category.name as String?)
+                        } else {
+                            DisclosureGroup(isExpanded: categoryBinding(for: category.name)) {
+                                ForEach(category.subcategories) { subcategory in
+                                    HStack {
+                                        Text(subcategory.name)
+                                        Spacer()
+                                        Text("\(subcategory.count)")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .tag(category.name as String?)
+                                }
+                            } label: {
+                                Label(category.name, systemImage: icon(for: category.name))
+                            }
+                        }
                     }
                 } label: {
                     Text(group.name)
@@ -22,7 +40,7 @@ struct SidebarView: View {
         .listStyle(.sidebar)
     }
 
-    private func binding(for group: String) -> Binding<Bool> {
+    private func groupBinding(for group: String) -> Binding<Bool> {
         Binding(
             get: { expandedGroups.contains(group) },
             set: { expanded in
@@ -30,6 +48,19 @@ struct SidebarView: View {
                     expandedGroups.insert(group)
                 } else {
                     expandedGroups.remove(group)
+                }
+            }
+        )
+    }
+
+    private func categoryBinding(for category: String) -> Binding<Bool> {
+        Binding(
+            get: { !collapsedCategories.contains(category) },
+            set: { expanded in
+                if expanded {
+                    collapsedCategories.remove(category)
+                } else {
+                    collapsedCategories.insert(category)
                 }
             }
         )
@@ -46,7 +77,7 @@ struct SidebarView: View {
         case "Menu Bar":
             "menubar.rectangle"
         case "Trackpad":
-            "trackpad"
+            "cursorarrow.rays"
         case "Desktop":
             "desktopcomputer"
         case "Keyboard":
@@ -58,7 +89,7 @@ struct SidebarView: View {
         case "Mission Control":
             "square.grid.3x3"
         case "Mouse":
-            "mouse"
+            "cursorarrow.click"
         case "Appearance":
             "paintpalette"
         case "Xcode":
@@ -68,7 +99,7 @@ struct SidebarView: View {
         case "Activity Monitor":
             "gauge.with.dots.needle.67percent"
         case "Safari":
-            "compass"
+            "safari"
         case "Feedback Assistant":
             "exclamationmark.bubble"
         case "Simulator":
@@ -78,7 +109,7 @@ struct SidebarView: View {
         case "Messages":
             "message"
         case "Windows":
-            "app.window.group"
+            "macwindow.on.rectangle"
         default:
             "square.grid.2x2"
         }

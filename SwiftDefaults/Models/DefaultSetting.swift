@@ -47,6 +47,7 @@ enum SettingValue: Codable, Equatable, Sendable {
 struct DefaultSetting: Codable, Identifiable, Sendable {
     let id: String
     let category: String
+    let subcategory: String?
     let title: String
     let description: String
     let domain: String
@@ -60,7 +61,7 @@ struct DefaultSetting: Codable, Identifiable, Sendable {
     let options: [SettingValue]?
 
     private enum CodingKeys: String, CodingKey {
-        case id, category, title, description, domain, key, type
+        case id, category, subcategory, title, description, domain, key, type
         case onValue, offValue, defaultValue, requiresRelaunch, appToRestart, options
     }
 
@@ -69,6 +70,7 @@ struct DefaultSetting: Codable, Identifiable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         category = try container.decode(String.self, forKey: .category)
+        subcategory = try container.decodeIfPresent(String.self, forKey: .subcategory)
         title = try container.decode(String.self, forKey: .title)
         description = try container.decode(String.self, forKey: .description)
         domain = try container.decode(String.self, forKey: .domain)
@@ -95,6 +97,7 @@ struct DefaultSetting: Codable, Identifiable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(category, forKey: .category)
+        try container.encodeIfPresent(subcategory, forKey: .subcategory)
         try container.encode(title, forKey: .title)
         try container.encode(description, forKey: .description)
         try container.encode(domain, forKey: .domain)
@@ -184,5 +187,37 @@ struct DefaultSetting: Codable, Identifiable, Sendable {
         case .float(let number):
             try container.encode(number, forKey: key)
         }
+    }
+}
+
+extension DefaultSetting {
+    /// A string setting whose every option is a `~/` or `/` path. Those rows get a
+    /// folder chooser next to the option picker; no registry field says so.
+    var isFolderSetting: Bool {
+        guard type == .string, let options, !options.isEmpty else { return false }
+        return options.allSatisfy { value in
+            guard case .string(let text) = value else { return false }
+            return text.hasPrefix("~/") || text.hasPrefix("/")
+        }
+    }
+
+    /// Options of a folder setting as text, the form the chooser compares against.
+    var folderOptions: [String] {
+        (options ?? []).compactMap { value in
+            guard case .string(let text) = value else { return nil }
+            return text
+        }
+    }
+
+    /// Text to stage for a folder the user picked. A pick that lands on one of the
+    /// options stages that option's literal form, so re-picking the current value is
+    /// not a change; any other folder stages the absolute path as given. Values are
+    /// only compared after tilde expansion — the app writes `~/` literally, because
+    /// that is the form macOS stores and expands.
+    static func stagedFolderValue(options: [String], chosenPath: String) -> String {
+        if let match = options.first(where: { ($0 as NSString).expandingTildeInPath == chosenPath }) {
+            return match
+        }
+        return chosenPath
     }
 }
