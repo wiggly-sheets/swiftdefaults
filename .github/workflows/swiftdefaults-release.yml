@@ -1,0 +1,49 @@
+name: SwiftDefaults Release
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest
+
+      - name: Package .app bundle
+        run: make app-bundle
+
+      - name: Verify bundle ships the registry
+        run: |
+          B=SwiftDefaults.app/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle
+          { test -f "$B/Contents/Resources/tweaks.json"; } || { echo "::error::$B/Contents/Resources/tweaks.json missing — the app crashes on launch without Bundle.module"; exit 1; }
+
+      - name: Create DMG
+        run: |
+          APP=SwiftDefaults.app
+          DMG=SwiftDefaults.dmg
+          hdiutil create -volname "SwiftDefaults" -srcfolder "$APP" -ov -format UDZO "$DMG"
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            SwiftDefaults.dmg
+            SwiftDefaults.dmg.sha256
+          generate_release_notes: true
