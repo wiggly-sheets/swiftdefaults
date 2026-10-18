@@ -2,6 +2,7 @@
   {
     "id": "dock-position",
     "category": "Dock",
+    "subcategory": "Position & Arrangement",
     "title": "Dock Position",
     "description": "Set the Dock position on screen.",
     "domain": "com.apple.dock",
@@ -16,19 +17,22 @@
   {
     "id": "dock-icon-size",
     "category": "Dock",
+    "subcategory": "Sizing",
     "title": "Dock Icon Size",
-    "description": "Set the Dock icon size in pixels. Default 48.",
+    "description": "Set the Dock icon size in pixels. Default 64.",
     "domain": "com.apple.dock",
     "key": "tilesize",
     "type": "integer",
     "onValue": 36,
-    "offValue": 48,
-    "defaultValue": 48,
+    "offValue": 64,
+    "defaultValue": 64,
+    "options": [16, 24, 36, 48, 64, 80, 96, 128],
     "appToRestart": "Dock"
   },
   {
     "id": "dock-autohide",
     "category": "Dock",
+    "subcategory": "Position & Arrangement",
     "title": "Automatically Hide the Dock",
     "description": "Hides the Dock until the pointer rests at the screen edge.",
     "domain": "com.apple.dock",
@@ -42,34 +46,37 @@
   {
     "id": "dock-autohide-animation",
     "category": "Dock",
+    "subcategory": "Behaviour",
     "title": "Dock Autohide Animation Time",
-    "description": "Seconds for the Dock autohide animation. Requires autohide on. 0 removes animation.",
+    "description": "Milliseconds for the Dock autohide animation. Requires autohide on. The scale changed in macOS 26; earlier versions counted seconds. 0 removes animation.",
     "domain": "com.apple.dock",
     "key": "autohide-time-modifier",
-    "type": "float",
-    "onValue": 0.0,
-    "offValue": 0.5,
-    "defaultValue": 0.5,
-    "options": [0.5, 2.0, 0.0],
+    "type": "integer",
+    "onValue": 0,
+    "offValue": 1000,
+    "defaultValue": 1000,
+    "options": [1000, 2000, 0],
     "appToRestart": "Dock"
   },
   {
     "id": "dock-autohide-delay",
     "category": "Dock",
+    "subcategory": "Behaviour",
     "title": "Dock Autohide Delay",
-    "description": "Delay before the Dock appears. Requires autohide on. 0 shows instantly.",
+    "description": "Milliseconds to wait before the Dock appears. Requires autohide on. 0 shows instantly.",
     "domain": "com.apple.dock",
     "key": "autohide-delay",
     "type": "float",
     "onValue": 0.0,
-    "offValue": 0.2,
-    "defaultValue": 0.2,
-    "options": [0.2, 0.0],
+    "offValue": 100.0,
+    "defaultValue": 100.0,
+    "options": [100.0, 0.0],
     "appToRestart": "Dock"
   },
   {
     "id": "dock-show-recents",
     "category": "Dock",
+    "subcategory": "Position & Arrangement",
     "title": "Show Recent Apps in Dock",
     "description": "Shows recently opened apps in a separate Dock section.",
     "domain": "com.apple.dock",
@@ -83,6 +90,7 @@
   {
     "id": "dock-minimize-effect",
     "category": "Dock",
+    "subcategory": "Position & Arrangement",
     "title": "Minimize Animation Effect",
     "description": "Window minimize effect. Suck is hidden from System Settings.",
     "domain": "com.apple.dock",
@@ -97,6 +105,7 @@
   {
     "id": "dock-static-only",
     "category": "Dock",
+    "subcategory": "Behaviour",
     "title": "Show Active Apps Only",
     "description": "Dock shows only open apps; pinned apps are hidden.",
     "domain": "com.apple.dock",
@@ -110,6 +119,7 @@
   {
     "id": "dock-scroll-to-open",
     "category": "Dock",
+    "subcategory": "Behaviour",
     "title": "Scroll on Dock Icon to Expose",
     "description": "Scroll up on a Dock icon to show the app windows or open a stack.",
     "domain": "com.apple.dock",
@@ -123,6 +133,7 @@
   {
     "id": "dock-magnification",
     "category": "Dock",
+    "subcategory": "Position & Arrangement",
     "title": "Enable Dock Magnification",
     "description": "Enlarges Dock icons near the pointer.",
     "domain": "com.apple.dock",
@@ -136,6 +147,7 @@
   {
     "id": "screenshot-disable-shadow",
     "category": "Screenshots",
+    "subcategory": "Capture & Format",
     "title": "Disable Screenshot Shadows",
     "description": "Removes the drop shadow from window screenshots.",
     "domain": "com.apple.screencapture",
@@ -148,6 +160,7 @@
   {
     "id": "screenshot-include-date",
     "category": "Screenshots",
+    "subcategory": "Capture & Format",
     "title": "Include Date in Filename",
     "description": "Screenshot files include the capture date, e.g. Screenshot 2020-01-09 at 13.27.20.png.",
     "domain": "com.apple.screencapture",
@@ -160,6 +173,7 @@
   {
     "id": "screenshot-location",
     "category": "Screenshots",
+    "subcategory": "Location",
     "title": "Screenshot Save Location",
     "description": "Folder where screenshots are saved. Target folder must exist.",
     "domain": "com.apple.screencapture",
@@ -168,12 +182,13 @@
     "onValue": "~/Pictures",
     "offValue": "~/Desktop",
     "defaultValue": "~/Desktop",
-    "options": ["~/Desktop", "~/Pictures"],
-    "appToRestart": "SystemUIServer"
+    "options": ["~/Desktop", "~/Documents", "~/Downloads", "~/Pictures", "~/Movies"],
+    "appToRestart": "screencaptureui"
   },
   {
     "id": "screenshot-show-thumbnail",
     "category": "Screenshots",
+    "subcategory": "Capture & Format",
     "title": "Show Floating Thumbnail",
     "description": "Shows the floating preview thumbnail after taking a screenshot.",
     "domain": "com.apple.screencapture",
@@ -186,6 +201,7 @@
   {
     "id": "screenshot-format",
     "category": "Screenshots",
+    "subcategory": "Capture & Format",
     "title": "Screenshot Format",
     "description": "File format for screenshots. Default png.",
     "domain": "com.apple.screencapture",
@@ -212,6 +228,7 @@
   {
     "id": "finder-quit-menu",
     "category": "Finder",
+    "subcategory": "Files & Folders",
     "title": "Add Quit to Finder Menu",
     "description": "Adds a Quit item to the Finder menu. Site warns it behaves strangely.",
     "domain": "com.apple.finder",
@@ -225,6 +242,7 @@
   {
     "id": "finder-show-all-extensions",
     "category": "Finder",
+    "subcategory": "Files & Folders",
     "title": "Show All Filename Extensions",
     "description": "Shows file extensions for all files, not just unknown types.",
     "domain": "NSGlobalDomain",
@@ -238,6 +256,7 @@
   {
     "id": "finder-show-hidden-files",
     "category": "Finder",
+    "subcategory": "Files & Folders",
     "title": "Show Hidden Files",
     "description": "Shows hidden files and folders in Finder windows.",
     "domain": "com.apple.finder",
@@ -251,6 +270,7 @@
   {
     "id": "finder-show-path-bar",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Show Path Bar",
     "description": "Shows the folder path bar at the bottom of Finder windows.",
     "domain": "com.apple.finder",
@@ -264,6 +284,7 @@
   {
     "id": "finder-default-view-style",
     "category": "Finder",
+    "subcategory": "Files & Folders",
     "title": "Default View Style",
     "description": "Default Finder folder view. icnv icon, Nlsv list, clmv column, glyv gallery.",
     "domain": "com.apple.finder",
@@ -278,6 +299,7 @@
   {
     "id": "finder-sort-folders-first",
     "category": "Finder",
+    "subcategory": "Files & Folders",
     "title": "Keep Folders on Top",
     "description": "Sorts folders before files in Finder windows.",
     "domain": "com.apple.finder",
@@ -291,6 +313,7 @@
   {
     "id": "finder-spawn-tab",
     "category": "Finder",
+    "subcategory": "Tabs & Trash",
     "title": "Open Folders in New Tab",
     "description": "Cmd+double-click opens a new tab instead of a new window.",
     "domain": "com.apple.finder",
@@ -304,6 +327,7 @@
   {
     "id": "finder-default-search-scope",
     "category": "Finder",
+    "subcategory": "Files & Folders",
     "title": "Default Search Scope",
     "description": "Where Finder searches by default. SCcf current folder, SCsp previous scope, SCev this Mac.",
     "domain": "com.apple.finder",
@@ -318,6 +342,7 @@
   {
     "id": "finder-empty-trash-30-days",
     "category": "Finder",
+    "subcategory": "Tabs & Trash",
     "title": "Empty Bin After 30 Days",
     "description": "CAUTION: automatically deletes Bin contents older than 30 days. Data loss risk.",
     "domain": "com.apple.finder",
@@ -326,14 +351,14 @@
     "onValue": true,
     "offValue": false,
     "defaultValue": false,
-    "requiresRelaunch": true,
     "appToRestart": "Finder"
   },
   {
     "id": "finder-extension-change-warning",
     "category": "Finder",
+    "subcategory": "Tabs & Trash",
     "title": "Warn on Extension Change",
-    "description": "Shows a warning when changing a file extension. Turning off removes a safety prompt.",
+    "description": "CAUTION: turning off removes a safety prompt when changing a file extension.",
     "domain": "com.apple.finder",
     "key": "FXEnableExtensionChangeWarning",
     "type": "boolean",
@@ -345,18 +370,20 @@
   {
     "id": "finder-save-to-disk",
     "category": "Finder",
-    "title": "Save New Documents to Disk",
-    "description": "New documents default to local disk instead of iCloud.",
+    "subcategory": "Files & Folders",
+    "title": "Save New Documents to iCloud",
+    "description": "New documents default to iCloud. Turn off to save to local disk instead.",
     "domain": "NSGlobalDomain",
     "key": "NSDocumentSaveNewDocumentsToCloud",
     "type": "boolean",
-    "onValue": false,
-    "offValue": true,
+    "onValue": true,
+    "offValue": false,
     "defaultValue": true
   },
   {
     "id": "finder-titlebar-icons",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Always Show Title Bar Icons",
     "description": "Always shows the folder proxy icon in Finder window title bars.",
     "domain": "com.apple.universalaccess",
@@ -370,6 +397,7 @@
   {
     "id": "finder-toolbar-rollover-delay",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Toolbar Title Rollover Delay",
     "description": "Delay before the title bar path menu appears on hover. Applies when title bar icons are hidden.",
     "domain": "NSGlobalDomain",
@@ -384,6 +412,7 @@
   {
     "id": "finder-sidebar-icon-size",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Sidebar Icon Size",
     "description": "Finder sidebar icon size. 1 small, 2 medium, 3 large.",
     "domain": "NSGlobalDomain",
@@ -398,6 +427,7 @@
   {
     "id": "finder-column-autosize",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Column View Auto Sizing",
     "description": "Automatically sizes columns in Finder column view.",
     "domain": "com.apple.finder",
@@ -411,6 +441,7 @@
   {
     "id": "finder-show-status-bar",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Show Status Bar",
     "description": "Shows the status bar with item counts at the bottom of Finder windows.",
     "domain": "com.apple.finder",
@@ -424,6 +455,7 @@
   {
     "id": "finder-posix-path-in-title",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Show Full Path in Title Bar",
     "description": "Shows the full POSIX path in Finder window title bars.",
     "domain": "com.apple.finder",
@@ -437,6 +469,7 @@
   {
     "id": "desktop-sort-folders-first",
     "category": "Desktop",
+    "subcategory": "Icons",
     "title": "Keep Folders on Top on Desktop",
     "description": "Sorts folders before files on the Desktop.",
     "domain": "com.apple.finder",
@@ -450,8 +483,9 @@
   {
     "id": "desktop-show-icons",
     "category": "Desktop",
+    "subcategory": "Icons",
     "title": "Show Desktop Icons",
-    "description": "Shows all icons on the Desktop. Turning off leaves the Desktop empty.",
+    "description": "CAUTION: turning off leaves the Desktop completely empty. Shows all icons on the Desktop.",
     "domain": "com.apple.finder",
     "key": "CreateDesktop",
     "type": "boolean",
@@ -463,6 +497,7 @@
   {
     "id": "desktop-show-hard-drives",
     "category": "Desktop",
+    "subcategory": "Volumes",
     "title": "Show Hard Disks on Desktop",
     "description": "Shows internal hard disks on the Desktop.",
     "domain": "com.apple.finder",
@@ -476,6 +511,7 @@
   {
     "id": "desktop-show-external",
     "category": "Desktop",
+    "subcategory": "Volumes",
     "title": "Show External Disks on Desktop",
     "description": "Shows external hard disks on the Desktop.",
     "domain": "com.apple.finder",
@@ -489,6 +525,7 @@
   {
     "id": "desktop-show-removable",
     "category": "Desktop",
+    "subcategory": "Volumes",
     "title": "Show Removable Media on Desktop",
     "description": "Shows CDs, DVDs and iPods on the Desktop.",
     "domain": "com.apple.finder",
@@ -502,6 +539,7 @@
   {
     "id": "desktop-show-servers",
     "category": "Desktop",
+    "subcategory": "Volumes",
     "title": "Show Connected Servers on Desktop",
     "description": "Shows mounted network servers on the Desktop.",
     "domain": "com.apple.finder",
@@ -571,7 +609,9 @@
     "key": "com.apple.mouse.scaling",
     "type": "float",
     "onValue": 2.0,
-    "offValue": 1.0
+    "offValue": 1.0,
+    "defaultValue": 1.0,
+    "options": [0.5, 1.0, 2.0, 3.0, 5.0]
   },
   {
     "id": "terminal-focus-follows-mouse",
@@ -589,6 +629,7 @@
   {
     "id": "trackpad-click-threshold",
     "category": "Trackpad",
+    "subcategory": "Clicking",
     "title": "Trackpad Click Weight",
     "description": "Force Touch click pressure. 0 light, 1 medium, 2 firm.",
     "domain": "com.apple.AppleMultitouchTrackpad",
@@ -602,6 +643,7 @@
   {
     "id": "trackpad-drag-lock",
     "category": "Trackpad",
+    "subcategory": "Gestures & Scrolling",
     "title": "Dragging With Drag Lock",
     "description": "Double-tap and drag locks until a second tap releases. Mutually exclusive with other drag modes.",
     "domain": "com.apple.AppleMultitouchTrackpad",
@@ -614,6 +656,7 @@
   {
     "id": "trackpad-dragging",
     "category": "Trackpad",
+    "subcategory": "Gestures & Scrolling",
     "title": "Dragging Without Drag Lock",
     "description": "Double-tap and drag without lock. Mutually exclusive with other drag modes.",
     "domain": "com.apple.AppleMultitouchTrackpad",
@@ -626,6 +669,7 @@
   {
     "id": "trackpad-three-finger-drag",
     "category": "Trackpad",
+    "subcategory": "Gestures & Scrolling",
     "title": "Three-Finger Drag",
     "description": "Drag windows with three fingers. Mutually exclusive with other drag modes.",
     "domain": "com.apple.AppleMultitouchTrackpad",
@@ -638,18 +682,20 @@
   {
     "id": "trackpad-tap-to-click",
     "category": "Trackpad",
+    "subcategory": "Clicking",
     "title": "Tap to Click",
     "description": "A light tap on the trackpad counts as a click.",
-    "domain": "com.apple.driver.AppleBluetoothMultitouch.trackpad",
+    "domain": "com.apple.AppleMultitouchTrackpad",
     "key": "Clicking",
-    "type": "integer",
-    "onValue": 1,
-    "offValue": 0,
-    "defaultValue": 0
+    "type": "boolean",
+    "onValue": true,
+    "offValue": false,
+    "defaultValue": true
   },
   {
     "id": "keyboard-press-and-hold",
     "category": "Keyboard",
+    "subcategory": "Typing",
     "title": "Press and Hold for Accents",
     "description": "Holding a key shows the accent picker. Off gives key repeat. Relaunch app to apply.",
     "domain": "NSGlobalDomain",
@@ -661,8 +707,9 @@
   {
     "id": "keyboard-fn-usage",
     "category": "Keyboard",
+    "subcategory": "Function Keys",
     "title": "Fn Globe Key Action",
-    "description": "Fn/Globe key action. 0 do nothing, 1 change input source, 2 emoji and symbols, 3 dictation. Mac restart required.",
+    "description": "CAUTION: 0 disables the Fn/Globe key, which also turns off the emoji picker, dictation and input source switching. 1 change input source, 2 emoji and symbols, 3 dictation. Mac restart required.",
     "domain": "com.apple.HIToolbox",
     "key": "AppleFnUsageType",
     "type": "integer",
@@ -675,6 +722,7 @@
   {
     "id": "keyboard-function-keys",
     "category": "Keyboard",
+    "subcategory": "Function Keys",
     "title": "Use F1-F12 as Function Keys",
     "description": "F1-F12 act as standard function keys instead of media and brightness keys.",
     "domain": "NSGlobalDomain",
@@ -687,6 +735,7 @@
   {
     "id": "keyboard-navigation",
     "category": "Keyboard",
+    "subcategory": "Typing",
     "title": "Full Keyboard Navigation",
     "description": "Tab and Shift+Tab move focus between all controls.",
     "domain": "NSGlobalDomain",
@@ -699,6 +748,7 @@
   {
     "id": "keyboard-period-doublespace",
     "category": "Keyboard",
+    "subcategory": "Typing",
     "title": "Add Period With Double-Space",
     "description": "Pressing space twice inserts a period.",
     "domain": "NSGlobalDomain",
@@ -710,6 +760,7 @@
   {
     "id": "keyboard-language-indicator",
     "category": "Keyboard",
+    "subcategory": "Typing",
     "title": "Show Language Indicator",
     "description": "Shows an indicator when switching input sources.",
     "domain": "kCFPreferencesAnyApplication",
@@ -764,30 +815,18 @@
     "type": "boolean",
     "onValue": true,
     "offValue": false,
-    "appToRestart": "SystemUIServer"
+    "requiresRelaunch": true
   },
   {
     "id": "feedback-autogather",
     "category": "Feedback Assistant",
     "title": "Auto-Attach Large Files",
-    "description": "Feedback Assistant automatically attaches large files to reports. Privacy-adjacent.",
+    "description": "CAUTION: Feedback Assistant automatically attaches large files to reports. Privacy-adjacent.",
     "domain": "com.apple.appleseed.FeedbackAssistant",
     "key": "Autogather",
     "type": "boolean",
     "onValue": true,
     "offValue": false
-  },
-  {
-    "id": "xcode-counterpart-suffixes",
-    "category": "Xcode",
-    "title": "Additional Counterpart Suffixes",
-    "description": "Extra filename suffixes treated as counterparts, e.g. ViewModel with View. Real command uses -array-add; Revert deletes the key.",
-    "domain": "com.apple.dt.Xcode",
-    "key": "IDEAdditionalCounterpartSuffixes",
-    "type": "string",
-    "onValue": "ViewModel",
-    "offValue": "",
-    "appToRestart": "Xcode"
   },
   {
     "id": "xcode-build-duration",
@@ -809,9 +848,10 @@
     "domain": "com.apple.iphonesimulator",
     "key": "ScreenShotSaveLocation",
     "type": "string",
-    "onValue": "~/Pictures/Screenshots",
-    "offValue": "~/Pictures/Simulator Screenshots",
-    "options": ["~/Pictures/Screenshots", "~/Pictures/Simulator Screenshots"]
+    "onValue": "~/Pictures",
+    "offValue": "~/Desktop",
+    "defaultValue": "~/Desktop",
+    "options": ["~/Desktop", "~/Documents", "~/Downloads", "~/Pictures", "~/Movies"]
   },
   {
     "id": "textedit-richtext",
@@ -945,8 +985,8 @@
     "domain": "com.apple.LaunchServices",
     "key": "LSQuarantine",
     "type": "boolean",
-    "onValue": false,
-    "offValue": true,
+    "onValue": true,
+    "offValue": false,
     "defaultValue": true,
     "requiresRelaunch": true
   },
@@ -954,20 +994,9 @@
     "id": "misc-close-confirm",
     "category": "Miscellaneous",
     "title": "Confirm Changes on Close",
-    "description": "Apps ask to keep changes when closing a document. Off auto-saves. Relaunch app to apply.",
+    "description": "CAUTION: turning off removes the save prompt in apps that do not autosave, so unsaved changes can be lost. Relaunch app to apply.",
     "domain": "NSGlobalDomain",
     "key": "NSCloseAlwaysConfirmsChanges",
-    "type": "boolean",
-    "onValue": true,
-    "offValue": false
-  },
-  {
-    "id": "calendar-clear-recent-timezones",
-    "category": "Miscellaneous",
-    "title": "Clear Calendar Recent Time Zones",
-    "description": "Delete-only entry: clears recently used Calendar time zones. Toggle writes nothing; use Revert to delete the key.",
-    "domain": "com.apple.iCal",
-    "key": "RecentlyUsedTimeZones",
     "type": "boolean",
     "onValue": true,
     "offValue": false
@@ -986,6 +1015,7 @@
   {
     "id": "wm-disable-tiling-animations",
     "category": "Window Manager",
+    "subcategory": "Animation",
     "title": "Disable Tiling Animations",
     "description": "Turns off window tiling animations. Windows snap instantly.",
     "domain": "com.apple.WindowManager",
@@ -996,21 +1026,9 @@
     "defaultValue": false
   },
   {
-    "id": "wm-animation-speed",
-    "category": "Window Manager",
-    "title": "Tiling Animation Speed",
-    "description": "Window tiling animation speed multiplier. 0 snaps instantly.",
-    "domain": "com.apple.WindowManager",
-    "key": "AnimationSpeed",
-    "type": "float",
-    "onValue": 0.0,
-    "offValue": 1.0,
-    "defaultValue": 1.0,
-    "options": [1.0, 2.0, 0.0]
-  },
-  {
     "id": "wm-tiled-margins",
     "category": "Window Manager",
+    "subcategory": "Spaces & Arrangement",
     "title": "Tiled Window Margins",
     "description": "Keeps gap around tiled windows. Off tiles edge to edge.",
     "domain": "com.apple.WindowManager",
@@ -1023,6 +1041,7 @@
   {
     "id": "wm-tiling-edge-drag",
     "category": "Window Manager",
+    "subcategory": "Spaces & Arrangement",
     "title": "Tile by Edge Drag",
     "description": "Dragging a window to a screen edge tiles it.",
     "domain": "com.apple.WindowManager",
@@ -1035,6 +1054,7 @@
   {
     "id": "wm-top-tiling-edge-drag",
     "category": "Window Manager",
+    "subcategory": "Spaces & Arrangement",
     "title": "Tile by Top Edge Drag",
     "description": "Dragging a window to the top edge maximizes it.",
     "domain": "com.apple.WindowManager",
@@ -1047,6 +1067,7 @@
   {
     "id": "wm-click-show-desktop",
     "category": "Window Manager",
+    "subcategory": "Spaces & Arrangement",
     "title": "Click Wallpaper to Show Desktop",
     "description": "Clicking the wallpaper clears windows to show the Desktop.",
     "domain": "com.apple.WindowManager",
@@ -1059,6 +1080,7 @@
   {
     "id": "wm-standard-hide-widgets",
     "category": "Window Manager",
+    "subcategory": "Spaces & Arrangement",
     "title": "Hide Widgets on Show Desktop",
     "description": "Click-to-show Desktop also hides widgets.",
     "domain": "com.apple.WindowManager",
@@ -1070,6 +1092,7 @@
   {
     "id": "wm-stagemanager-hide-widgets",
     "category": "Window Manager",
+    "subcategory": "Spaces & Arrangement",
     "title": "Hide Widgets in Stage Manager",
     "description": "Stage Manager also hides Desktop widgets.",
     "domain": "com.apple.WindowManager",
@@ -1112,13 +1135,16 @@
     "domain": "NSGlobalDomain",
     "key": "NSConvolutionOverride1",
     "type": "float",
-    "onValue": 10.0,
-    "offValue": 0.0,
+    "onValue": 0.0,
+    "offValue": 10.0,
+    "defaultValue": 10.0,
+    "options": [10.0, 5.0, 0.0],
     "requiresRelaunch": true
   },
   {
     "id": "keyboard-auto-text-replacement",
     "category": "Keyboard",
+    "subcategory": "Typing",
     "title": "Automatic Text Replacement",
     "description": "Replaces quotes, dashes and fractions with smart versions system-wide.",
     "domain": "NSGlobalDomain",
@@ -1130,6 +1156,7 @@
   {
     "id": "keyboard-web-auto-text-replacement",
     "category": "Keyboard",
+    "subcategory": "Typing",
     "title": "Web Text Replacement",
     "description": "Applies automatic text replacement in web views.",
     "domain": "NSGlobalDomain",
@@ -1152,6 +1179,7 @@
   {
     "id": "finder-disable-animations",
     "category": "Finder",
+    "subcategory": "Windows & Tabs",
     "title": "Disable All Animations",
     "description": "Turns off all Finder animations. Finder feels instant.",
     "domain": "com.apple.finder",
@@ -1165,20 +1193,22 @@
   {
     "id": "dock-large-size",
     "category": "Dock",
+    "subcategory": "Sizing",
     "title": "Dock Magnified Size",
     "description": "Magnified icon size in pixels. Requires magnification on.",
     "domain": "com.apple.dock",
     "key": "largesize",
     "type": "integer",
     "onValue": 96,
-    "offValue": 76,
-    "defaultValue": 76,
-    "options": [76, 96],
+    "offValue": 64,
+    "defaultValue": 64,
+    "options": [16, 32, 48, 64, 96, 128],
     "appToRestart": "Dock"
   },
   {
     "id": "dock-size-immutable",
     "category": "Dock",
+    "subcategory": "Sizing",
     "title": "Lock Dock Size",
     "description": "CAUTION: locks Dock icon size. System Settings size slider stops working until reverted.",
     "domain": "com.apple.dock",
@@ -1192,6 +1222,7 @@
   {
     "id": "screenshot-thumbnail-expiration",
     "category": "Screenshots",
+    "subcategory": "Location",
     "title": "Thumbnail Display Time",
     "description": "Seconds the floating screenshot thumbnail stays on screen. Default 10.",
     "domain": "com.apple.screencaptureui",
