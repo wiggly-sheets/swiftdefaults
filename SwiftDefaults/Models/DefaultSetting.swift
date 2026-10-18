@@ -9,38 +9,14 @@ enum SettingType: String, Codable, Sendable {
 }
 
 /// Untagged value matching the JSON number, string, or bool at the key.
-enum SettingValue: Codable, Equatable, Sendable {
+/// Not `Codable` on its own: an untagged decode has no declared type to read, so a
+/// whole float would round-trip through JSON as an integer. Registry values decode
+/// through `DefaultSetting.init(from:)`, which is type-driven.
+enum SettingValue: Equatable, Sendable {
     case boolean(Bool)
     case integer(Int)
     case string(String)
     case float(Double)
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let value = try? container.decode(Bool.self) {
-            self = .boolean(value)
-        } else if let value = try? container.decode(Int.self) {
-            self = .integer(value)
-        } else if let value = try? container.decode(Double.self) {
-            self = .float(value)
-        } else {
-            self = .string(try container.decode(String.self))
-        }
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .boolean(let value):
-            try container.encode(value)
-        case .integer(let value):
-            try container.encode(value)
-        case .string(let value):
-            try container.encode(value)
-        case .float(let value):
-            try container.encode(value)
-        }
-    }
 }
 
 /// One toggleable macOS default from the registry.

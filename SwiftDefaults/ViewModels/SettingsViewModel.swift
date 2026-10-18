@@ -419,7 +419,7 @@ final class SettingsViewModel: ObservableObject {
         canonicalString(value)
     }
 
-    private func value(for setting: DefaultSetting, stringValue: String) -> SettingValue? {
+    func value(for setting: DefaultSetting, stringValue: String) -> SettingValue? {
         switch setting.type {
         case .boolean:
             return boolean(stringValue).map(SettingValue.boolean)
@@ -437,7 +437,7 @@ final class SettingsViewModel: ObservableObject {
     /// `defaults read` prints a boolean as 1/0 in some domains and as true/false in
     /// others — `com.apple.finder CreateDesktop` prints `true`, `com.apple.dock
     /// autohide` prints `1` — so both spellings parse, whichever path read the value.
-    private func boolean(_ text: String) -> Bool? {
+    func boolean(_ text: String) -> Bool? {
         switch text {
         case "1", "true": return true
         case "0", "false": return false
@@ -564,7 +564,7 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
-    private func loadRegistry() throws -> [DefaultSetting] {
+    func loadRegistry() throws -> [DefaultSetting] {
         #if SWIFT_PACKAGE
         let bundles = [Bundle.module, Bundle.main]
         #else
@@ -581,7 +581,7 @@ final class SettingsViewModel: ObservableObject {
         throw RegistryError.missingFile
     }
 
-    private static func validate(_ entries: [DefaultSetting]) throws {
+    static func validate(_ entries: [DefaultSetting]) throws {
         let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
         var ids = Set<String>()
         var targets = Set<String>()

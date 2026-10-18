@@ -9,6 +9,7 @@ let package = Package(
             name: "SwiftDefaults",
             path: "SwiftDefaults",
             resources: [.process("Resources")]
-        )
+        ),
+        .testTarget(name: "SwiftDefaultsTests", dependencies: ["SwiftDefaults"])
     ]
 )

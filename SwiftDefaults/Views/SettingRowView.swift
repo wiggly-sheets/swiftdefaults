@@ -208,8 +208,11 @@ struct SettingRowView: View {
     }
 
     /// `Int(_:)` traps on NaN, infinity, and values beyond Int range, and this runs while
-    /// drawing the row. Clamp to the control's own bounds instead.
-    private func safeInt(_ number: Double) -> Int {
+    /// drawing the row. Returns any exactly-convertible integer verbatim — including
+    /// values outside the control's range, because `stepDisplayValue` must show what
+    /// is on disk rather than a clamped lie — and only clamps when `Int(exactly:)`
+    /// would fail.
+    func safeInt(_ number: Double) -> Int {
         if let exact = Int(exactly: number) { return exact }
         let clamped = number.isNaN
             ? numericRange.lowerBound

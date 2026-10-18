@@ -63,7 +63,7 @@ enum DefaultsEngine {
     /// Renders a parsed plist value the way `defaults read <domain> <key>` prints it.
     /// Foundation cannot write openstep, so container text is hand-rolled: a caller's
     /// plist-container guard keys off the leading `{` or `(` and must never see `""`.
-    private static func rendered(_ value: Any) -> String {
+    static func rendered(_ value: Any) -> String {
         switch value {
         case let text as String:
             return text
@@ -126,7 +126,7 @@ enum DefaultsEngine {
     ///
     /// shortcut: matching on English message text, because `defaults` exposes no distinct
     /// exit code for absence. Add a code check here if a future macOS localises these.
-    private static func indicatesAbsent(_ output: String) -> Bool {
+    static func indicatesAbsent(_ output: String) -> Bool {
         // macOS 27: "Error: Could not find key 'k' in domain 'd'." (unset key in a real domain)
         //           "Error: Domain 'd' not found."                        (unknown domain)
         //           "Key k does not exist in domain d; leaving defaults unchanged" (older releases)
