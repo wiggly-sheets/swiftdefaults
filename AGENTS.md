@@ -7,7 +7,7 @@
 - `SwiftDefaults/Services/DefaultsEngine.swift` — thin async wrapper over `/usr/bin/defaults`
 - `SwiftDefaults/ViewModels/SettingsViewModel.swift` — registry load, live state, apply/revert
 - `SwiftDefaults/Views/` — `ContentView` (split view), `SidebarView`, `SettingRowView`
-- `SwiftDefaults/Resources/tweaks.json` — the tweak registry (96 entries, 21 categories)
+- `SwiftDefaults/Resources/tweaks.json` — the tweak registry (93 entries, 21 categories)
 - `SwiftDefaults/Info.plist` — bundle metadata (`LSMinimumSystemVersion` 15.0)
 - `Package.swift` — SPM executable target, macOS 15, resources via `.process("Resources")`
 - `Makefile` — `build run clean release app-bundle`
@@ -28,13 +28,14 @@ Each entry is a `DefaultSetting`:
 |-------|----------|---------|
 | `id` | yes | Stable kebab-case identifier |
 | `category` | yes | Sidebar group (e.g. `Dock`, `Finder`) |
+| `subcategory` | no | Second sidebar level inside `category`; all or nothing per category |
 | `title` | yes | Human-readable name |
 | `description` | yes | Plain-English explanation; prefix with `CAUTION:` for risky tweaks |
 | `domain` | yes | Defaults domain (e.g. `com.apple.dock`, `NSGlobalDomain`) |
 | `key` | yes | Key within the domain |
 | `type` | yes | `boolean` \| `integer` \| `string` \| `float` |
 | `onValue` / `offValue` | yes | Values written on toggle on/off (JSON bool, number, or string) |
-| `defaultValue` | no | Fallback used by revert when the original is unrecognized |
+| `defaultValue` | no | Shown for a key with nothing on disk; falls back to `offValue` |
 | `options` | no | Documents valid values for multi-choice settings |
 | `appToRestart` | no | App name shown as "Takes effect after X relaunches" |
 | `requiresRelaunch` | no | True when a relaunch/logout is needed beyond one app |
@@ -47,17 +48,21 @@ Each entry is a `DefaultSetting`:
    `jq length SwiftDefaults/Resources/tweaks.json`
    `jq '[.[].category] | unique' SwiftDefaults/Resources/tweaks.json`
 4. Verify `swift build` still passes (registry loads at runtime via `Bundle.module`).
-5. Prefer `appToRestart` over `requiresRelaunch` when a single app relaunch suffices; use `CAUTION:` in the description for destructive or security-adjacent entries.
+5. Splitting a category into subcategories is all or nothing: either every entry in a category sets `subcategory` or none does. `validate()` rejects a half-split registry at load, naming the entry that is missing one.
+6. Prefer `appToRestart` over `requiresRelaunch` when a single app relaunch suffices; use `CAUTION:` in the description for destructive or security-adjacent entries.
 
 ## Engine rules
 
 - `/usr/bin/defaults` via `Process` only. Never `sh -c`, never interpolated shell strings.
-- `DefaultsEngine` is a stateless `enum` with `async throws` functions: `read`, `write`, `delete`.
-- `read` returns `nil` on nonzero exit (key absent); `write`/`delete` throw `DefaultsError` with exit status and output.
+- `DefaultsEngine` is a stateless `enum` with `async throws` functions: `read`, `readDomain`, `write`, `delete`.
+- `read` returns `nil` when the key or the domain is absent, matching `defaults` not-found output; any other nonzero exit throws `DefaultsError` with exit status and output. `delete` treats an already-absent key as success, because revert needs it.
 - Type mapping is strict: `boolean → -bool`, `integer → -int`, `string → -string`, `float → -float`. Mismatches throw `typeMismatch(id:)`.
 - Booleans compare in canonical form: `defaults read` prints booleans as `1`/`0`.
-- Revert semantics live in `SettingsViewModel`: capture original once (`capturedIds`), restore it on revert, `delete` the key when it did not exist.
-- No force-unwrap, no background daemons, no bulk apply. One toggle writes one key.
+- String values keep edge spaces verbatim, and are written in the form macOS stores: a leading `~/` stays literal on disk and is expanded by the reading app, so nothing expands it here.
+- Edits are staged in memory: `stage`/`stageOption` store canonical strings in `pendingValues`; nothing reaches disk until `applyPending` writes them all. Failures stay staged, and so do ids with no captured original — those are never written either and set an error message. `discardPending` drops staged edits.
+- Revert semantics live in `SettingsViewModel`: the original is captured once (`capturedIds`) as a typed `SettingValue`, during the first read in `refresh()`; a value that does not match its declared type is not captured, so no Revert is offered. Revert rewrites the captured value, or `delete`s the key when it was absent.
+- `resetAll` discards pending edits and reverts every id this session applied (`appliedIds`).
+- No force-unwrap, no background daemons, no bulk apply. One toggle stages one key; only `applyPending` writes.
 
 ## Build / verify
 
@@ -82,5 +87,5 @@ No test suite yet; when adding one, use `swift test`.
 - Do not add dependencies (no new packages, pods, or npm tooling).
 - Do not add shell-outs beyond `/usr/bin/defaults` (and `killall`-style restarts only if explicitly requested).
 - Do not force-restart apps or add auto-apply on launch.
-- Do not persist revert history to disk without an explicit task (currently in-memory by design).
+- Do not persist staged edits or captured originals to disk without an explicit task (currently in-memory by design).
 - Do not commit build artifacts (`.build/`, `SwiftDefaults.app`).

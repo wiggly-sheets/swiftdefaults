@@ -10,9 +10,7 @@
   </p>
 
 <p>
-  <a href="https://github.com/YOUR-USER/swiftdefaults/actions"><img src="https://img.shields.io/badge/build-not_set_up_yet-lightgrey" alt="Build status placeholder" /></a>
-  <a href="#license"><img src="https://img.shields.io/badge/license-TODO-lightgrey" alt="License: TODO" /></a>
-  <a href="https://github.com/YOUR-USER/swiftdefaults/releases/latest"><img src="https://img.shields.io/badge/release-pre_release-orange" alt="Pre-release" /></a>
+  Pre-release. No signed build yet.
 </p>
 
   <p>
@@ -45,15 +43,17 @@ You do not need to know what a domain or plist key is. But if you want to check,
 
 ### Categorized tweaks
 
-96 tweaks across 21 categories (Dock, Finder, Screenshots, Window Manager, Keyboard, and more):
+93 tweaks across 21 categories (Dock, Finder, Screenshots, Window Manager, Keyboard, and more):
 
 - Human-readable title plus plain-English description per tweak
 - Sidebar navigation with category counts
 - Search across title, description, and key
 
-### One-click toggles
+### Staged edits, one Apply
 
-- Flip a switch to write the new value via `/usr/bin/defaults`
+- Flip a switch to stage the new value; nothing writes until Apply
+- Apply writes all pending edits via `/usr/bin/defaults`, keeping failures staged
+- Reset discards pending edits and restores captured originals
 - Live state: each launch reads current values with `defaults read`
 - Status dot shows whether the "on" value is active
 
@@ -93,7 +93,7 @@ Two ways to run SwiftDefaults: a double-clickable `.app` bundle, or straight fro
 ### Run from terminal (fastest)
 
 ```bash
-git clone https://github.com/YOUR-USER/swiftdefaults.git
+git clone https://github.com/wiggly-sheets/swiftdefaults.git
 cd swiftdefaults
 make run
 ```
@@ -146,7 +146,7 @@ Your revert history is per-launch (in memory), so updating resets it. Applied sy
 ### Step 1: Clone the repo
 
 ```bash
-git clone https://github.com/YOUR-USER/swiftdefaults.git
+git clone https://github.com/wiggly-sheets/swiftdefaults.git
 cd swiftdefaults
 ```
 
@@ -173,7 +173,7 @@ swift run
 | `app-bundle` | builds + assembles `.app` | `SwiftDefaults.app` in repo root |
 | `clean` | `swift package clean` | Clears build artifacts |
 
-`make app-bundle` wraps the debug binary with `Info.plist` and `tweaks.json` into a launchable `SwiftDefaults.app`.
+`make app-bundle` wraps the release binary with `Info.plist` and `tweaks.json` into a launchable `SwiftDefaults.app`.
 
 ### Running the tests
 
@@ -235,7 +235,7 @@ Found a wrong default value or a risky entry? Please open an issue with the twea
 
 ## License
 
-TODO: pick a license (e.g. MIT) and add a `LICENSE` file. This section will link it once chosen.
+MIT — see [LICENSE](LICENSE).
 
 ---
 
