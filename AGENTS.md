@@ -10,7 +10,7 @@
 - `SwiftDefaults/Resources/tweaks.json` — the tweak registry (93 entries, 21 categories, 16 subcategories across 7 fully split categories)
 - `SwiftDefaults/Info.plist` — bundle metadata (`LSMinimumSystemVersion` 15.0)
 - `Package.swift` — SPM executable target `SwiftDefaults` plus test target `SwiftDefaultsTests`, macOS 15, resources via `.process("Resources")`
-- `Makefile` — `build run clean release app-bundle app-bundle-debug run-bundle-debug`
+- `Makefile` — `build run clean release app-bundle app-bundle-debug run-bundle-debug`; builds the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand
 - `Tests/SwiftDefaultsTests/` — `ParsingTests`, `RegistryTests`, `TestSupport` (30 tests)
 - `.github/workflows/ci.yml` — `swift build` + `swift test` on push to main and on pull requests
 - `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests gate, versioned DMG, unsigned
@@ -22,7 +22,7 @@
 
 - Swift Package Manager is canonical. `SwiftDefaults.xcodeproj` exists but is not authoritative.
 - Two targets: executable `SwiftDefaults` (path `SwiftDefaults/`) and test target `SwiftDefaultsTests` (path `Tests/SwiftDefaultsTests/`).
-- Resources: `tweaks.json` is processed via `.process("Resources")` and loaded with `Bundle.module` (under `SWIFT_PACKAGE`) falling back to `Bundle.main`.
+- Resources: `tweaks.json` is processed via `.process("Resources")` and loaded with `Bundle.module` (under `SWIFT_PACKAGE`) falling back to `Bundle.main`. The `.app` does not ship SwiftPM's generated bundle: the `Makefile` builds `SwiftDefaults_SwiftDefaults.bundle` by hand in the classic macOS layout (`Contents/Info.plist`, `Contents/Resources/tweaks.json`, `Contents/Resources/AppIcon.icns`) and places it in BOTH the app root (where `Bundle.module` looks on SwiftPM 6.0–6.3) and `Contents/Resources` (where it looks on 6.4+), because `Bundle.module` fatalErrors when it finds neither.
 - Platforms: macOS 15+, Swift tools 6.0.
 
 ## Registry schema (`tweaks.json`)

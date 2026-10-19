@@ -198,7 +198,7 @@ swift run
 | `run-bundle-debug` | builds + assembles `.app`, then opens it | Runs `SwiftDefaults-Debug.app` |
 | `clean` | `swift package clean` | Clears build artifacts |
 
-`make app-bundle` wraps the release binary with `Info.plist`, `AppIcon.icns` and the SwiftPM resource bundle that carries `tweaks.json` into a launchable `SwiftDefaults.app`.
+`make app-bundle` wraps the release binary with `Info.plist`, `AppIcon.icns` and a resource bundle that carries `tweaks.json` into a launchable `SwiftDefaults.app`. The resource bundle ships in both the app root and `Contents/Resources`, because `Bundle.module` looks in one place or the other depending on the Swift toolchain.
 
 ### Running the tests
 
