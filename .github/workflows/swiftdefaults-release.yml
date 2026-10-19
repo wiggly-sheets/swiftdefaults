@@ -86,11 +86,14 @@ jobs:
           set -euo pipefail
           APP="SwiftDefaults.app"
           REGISTRY="${APP}/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
+          ROOT_REGISTRY="${APP}/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
           ICON="${APP}/Contents/Resources/AppIcon.icns"
-          if [ ! -f "$REGISTRY" ]; then
-            echo "::error::${REGISTRY} is missing - the app crashes on launch without Bundle.module"
-            exit 1
-          fi
+          for path in "$REGISTRY" "$ROOT_REGISTRY"; do
+            if [ ! -f "$path" ]; then
+              echo "::error::${path} is missing - the app crashes on launch without Bundle.module"
+              exit 1
+            fi
+          done
           if [ ! -f "$ICON" ]; then
             echo "::error::${ICON} is missing - the bundle ships no icon"
             exit 1
