@@ -1,3 +1,7 @@
+# Release pipeline for SwiftDefaults.
+# Gate order: tag -> tests -> package -> verify -> dmg -> publish.
+# Nothing is published unless `swift test` passes and the built bundle ships the tweak registry.
+
 name: SwiftDefaults Release
 
 on:
@@ -14,36 +18,128 @@ permissions:
 jobs:
   release:
     runs-on: macos-15
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest
+          xcode-version: latest-stable
+
+      - name: Resolve version from tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Tag '${GITHUB_REF_NAME}' is not a vMAJOR.MINOR.PATCH tag"
+            exit 1
+          fi
+          DMG="SwiftDefaults-${VERSION}.dmg"
+          {
+            echo "version=${VERSION}"
+            echo "dmg=${DMG}"
+            echo "files<<EOF"
+            echo "${DMG}"
+            echo "${DMG}.sha256"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Releasing ${VERSION}"
+
+      - name: Tag must sit on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} is not on origin/main - cut the tag from the main branch tip"
+            exit 1
+          fi
+
+      - name: Test
+        run: swift test
 
       - name: Package .app bundle
         run: make app-bundle
 
-      - name: Verify bundle ships the registry
+      - name: Stamp version into bundle
+        shell: bash
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          B=SwiftDefaults.app/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle
-          { test -f "$B/Contents/Resources/tweaks.json"; } || { echo "::error::$B/Contents/Resources/tweaks.json missing — the app crashes on launch without Bundle.module"; exit 1; }
+          set -euo pipefail
+          PLIST="SwiftDefaults.app/Contents/Info.plist"
+          BUILD="${VERSION//./}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD}" "$PLIST"
+
+      - name: Verify bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="SwiftDefaults.app"
+          REGISTRY="${APP}/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
+          ICON="${APP}/Contents/Resources/AppIcon.icns"
+          if [ ! -f "$REGISTRY" ]; then
+            echo "::error::${REGISTRY} is missing - the app crashes on launch without Bundle.module"
+            exit 1
+          fi
+          if [ ! -f "$ICON" ]; then
+            echo "::error::${ICON} is missing - the bundle ships no icon"
+            exit 1
+          fi
+          ARCHS="$(lipo -archs "${APP}/Contents/MacOS/SwiftDefaults")"
+          if [ "$ARCHS" != "arm64" ]; then
+            echo "::error::Expected an arm64 binary, got ${ARCHS}"
+            exit 1
+          fi
+          EXPECTED="$(jq length SwiftDefaults/Resources/tweaks.json)"
+          ACTUAL="$(jq length "$REGISTRY")"
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Shipped registry holds ${ACTUAL} entries, source holds ${EXPECTED}"
+            exit 1
+          fi
+          echo "Version: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP}/Contents/Info.plist")"
+          echo "Build:   $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${APP}/Contents/Info.plist")"
 
       - name: Create DMG
+        shell: bash
+        env:
+          DMG: ${{ steps.meta.outputs.dmg }}
         run: |
-          APP=SwiftDefaults.app
-          DMG=SwiftDefaults.dmg
-          hdiutil create -volname "SwiftDefaults" -srcfolder "$APP" -ov -format UDZO "$DMG"
-          shasum -a 256 "$DMG" > "$DMG.sha256"
+          set -euo pipefail
+          STAGE="$(mktemp -d)"
+          trap 'rm -rf "$STAGE"' EXIT
+          ditto "SwiftDefaults.app" "$STAGE/SwiftDefaults.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "SwiftDefaults" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+          shasum -a 256 "$DMG" > "${DMG}.sha256"
+          cat "${DMG}.sha256"
+
+      - name: Extract release notes
+        shell: bash
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk -v v="$VERSION" '
+            BEGIN { gsub(/\./, "\\.", v) }
+            $0 ~ ("^## \\[" v "\\]") { f = 1; next }
+            f && /^## \[/ { f = 0 }
+            f { print }
+          ' CHANGELOG.md > release-notes.md
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            SwiftDefaults.dmg
-            SwiftDefaults.dmg.sha256
+          body_path: release-notes.md
+          files: ${{ steps.meta.outputs.files }}
+          fail_on_unmatched_files: true
           generate_release_notes: true

@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+      - name: Package .app bundle
+        run: make app-bundle
+
+      - name: Verify bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          REGISTRY="SwiftDefaults.app/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
+          ICON="SwiftDefaults.app/Contents/Resources/AppIcon.icns"
+          if [ ! -f "$REGISTRY" ]; then
+            echo "::error::${REGISTRY} is missing - the app crashes on launch without Bundle.module"
+            exit 1
+          fi
+          if [ ! -f "$ICON" ]; then
+            echo "::error::${ICON} is missing - the bundle ships no icon"
+            exit 1
+          fi
+
+      - name: Registry sanity
+        shell: bash
+        run: |
+          set -euo pipefail
+          REGISTRY="SwiftDefaults/Resources/tweaks.json"
+          COUNT="$(jq length "$REGISTRY")"
+          if [ "$COUNT" -lt 1 ]; then
+            echo "::error::${REGISTRY} is empty"
+            exit 1
+          fi
+          if ! jq -e 'all(.[]; .id and .category and .title and .description and .domain and .key and .type and (.onValue != null) and (.offValue != null))' "$REGISTRY" > /dev/null; then
+            echo "::error::${REGISTRY} has an entry missing a required field"
+            exit 1
+          fi
+          echo "registry holds ${COUNT} entries"
