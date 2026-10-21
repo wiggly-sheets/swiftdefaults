@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The release workflow now signs the app bundle ad-hoc before it builds the disk image. The app is still not notarized, so macOS may still block the first open.
-- The app reads the tweak registry from `Contents/Resources/SwiftDefaults_SwiftDefaults.bundle` and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds no bundle. The release workflow drops the spare copy of the bundle in the app root, because `codesign` seals only what lives in `Contents/`.
+- The Makefile follows the shared build vocabulary: `make` prints the targets, and `make build`, `make test`, `make app`, `make dmg`, `make release-artifacts`, `make release VERSION=x.y.z` and `make clean` do the work. SwiftDefaults is Apple silicon only, so there is no per-architecture target.
+- The Makefile owns the packaging now. `make app` assembles the bundle, stamps the version and signs it ad-hoc, `make dmg` builds `release/SwiftDefaults-<version>.dmg`, and `make release-artifacts` writes `release/SwiftDefaults-<version>.dmg.sha256` next to it. The release workflow calls those targets instead of running `hdiutil`, `shasum` and `PlistBuddy` itself.
+- `make release VERSION=x.y.z` refuses a dirty working tree and a version whose tag already exists, builds the artifacts, creates the annotated tag `v<x.y.z>` locally and prints the command that pushes the commit and the tag. It never pushes by itself.
+- The app reads the tweak registry from `Contents/Resources/SwiftDefaults_SwiftDefaults.bundle` and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds no bundle. The bundle no longer holds the spare copy in the app root, because `codesign` seals only what lives in `Contents/`.
 
 ## [1.0.1] - 2026-10-19
 

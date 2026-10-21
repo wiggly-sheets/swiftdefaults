@@ -16,6 +16,7 @@ build/
 *.app/
 SwiftDefaults.app/
 SwiftDefaults-Debug.app/
+release/
 
 # Icon workfiles (keep tracked AppIcon.icns)
 *.iconset/

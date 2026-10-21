@@ -27,13 +27,13 @@ jobs:
           xcode-version: latest-stable
 
       - name: Build
-        run: swift build
+        run: make build
 
       - name: Test
-        run: swift test
+        run: make test
 
       - name: Package .app bundle
-        run: make app-bundle
+        run: make app
 
       - name: Verify bundle
         shell: bash
@@ -41,14 +41,18 @@ jobs:
           set -euo pipefail
           APP="SwiftDefaults.app"
           REGISTRY="${APP}/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
-          ROOT_REGISTRY="${APP}/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
+          ROOT_REGISTRY="${APP}/SwiftDefaults_SwiftDefaults.bundle"
           ICON="${APP}/Contents/Resources/AppIcon.icns"
-          for path in "$REGISTRY" "$ROOT_REGISTRY"; do
-            if [ ! -f "$path" ]; then
-              echo "::error::${path} is missing - the app crashes on launch without Bundle.module"
-              exit 1
-            fi
-          done
+          # The bundle ships the registry in Contents/Resources only. The copy in the app
+          # root is gone, because codesign seals only what lives in Contents/.
+          if [ ! -f "$REGISTRY" ]; then
+            echo "::error::${REGISTRY} is missing - the app crashes on launch without the registry, which now ships in Contents/Resources only"
+            exit 1
+          fi
+          if [ -e "$ROOT_REGISTRY" ]; then
+            echo "::error::${ROOT_REGISTRY} is in the app root again - codesign refuses to sign a bundle with unsealed contents"
+            exit 1
+          fi
           if [ ! -f "$ICON" ]; then
             echo "::error::${ICON} is missing - the bundle ships no icon"
             exit 1

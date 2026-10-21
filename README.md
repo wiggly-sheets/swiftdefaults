@@ -85,7 +85,7 @@ You do not need to know what a domain or plist key is. But if you want to check,
 
 Download `SwiftDefaults-1.0.1.dmg` for macOS 15+ (Apple Silicon) from the [Releases page](https://github.com/wiggly-sheets/swiftdefaults/releases).
 
-It is **ad-hoc signed and not notarized**: the release workflow signs the bundle ad-hoc, so no developer identity is attached to it. macOS may still block the first open, because the app is not notarized. Control-click the app in Finder and choose Open, or remove the quarantine attribute:
+It is **ad-hoc signed and not notarized**: the Makefile signs the bundle ad-hoc when it builds it, so no developer identity is attached to it. macOS may still block the first open, because the app is not notarized. Control-click the app in Finder and choose Open, or remove the quarantine attribute:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/SwiftDefaults.app
@@ -132,13 +132,13 @@ This builds a debug binary and launches it via `swift run`.
 Build the app bundle, then move it to Applications:
 
 ```bash
-make app-bundle
+make app
 cp -r SwiftDefaults.app /Applications/
 ```
 
 Then double-click **SwiftDefaults** in Applications. No Xcode required — only the Swift toolchain.
 
-The bundle you build is unsigned, so macOS blocks the first open. Right-click **SwiftDefaults** in Applications, choose **Open**, then confirm.
+The bundle you build is signed ad-hoc, so macOS may still block the first open, because the app is not notarized. Right-click **SwiftDefaults** in Applications, choose **Open**, then confirm.
 
 ---
 
@@ -156,7 +156,7 @@ If you copied `SwiftDefaults.app` to Applications, rebuild and replace it:
 
 ```bash
 git pull
-make app-bundle
+make app
 cp -r SwiftDefaults.app /Applications/
 ```
 
@@ -194,24 +194,31 @@ swift run
 
 ### Make targets
 
+`make` prints this list. Every target is phony.
+
 | Target | Command | Output |
 |--------|---------|--------|
 | `build` | `swift build` | Debug binary in `.build/debug/` |
+| `test` | `swift test` | Runs the test suite |
 | `run` | `swift run` | Builds and launches the app |
-| `release` | `swift build -c release` | Optimized binary in `.build/release/` |
-| `app-bundle` | builds + assembles `.app` | `SwiftDefaults.app` in repo root |
+| `app` | builds + assembles + signs `.app` | `SwiftDefaults.app` in repo root |
 | `app-bundle-debug` | builds + assembles `.app` | `SwiftDefaults-Debug.app` in repo root |
 | `run-bundle-debug` | builds + assembles `.app`, then opens it | Runs `SwiftDefaults-Debug.app` |
-| `clean` | `swift package clean` | Clears build artifacts |
+| `dmg` | `make app` + `hdiutil` | `release/SwiftDefaults-<version>.dmg` |
+| `release-artifacts` | `make dmg` + `shasum` | The DMG and `release/SwiftDefaults-<version>.dmg.sha256` |
+| `release VERSION=x.y.z` | builds + tags locally | Tag `v<x.y.z>`, prints the push command |
+| `clean` | removes the build output | Clears `.build/`, the bundles and `release/` |
 
-`make app-bundle` wraps the release binary with `Info.plist`, `AppIcon.icns` and a resource bundle that carries `tweaks.json` into a launchable `SwiftDefaults.app`. The resource bundle ships in both the app root and `Contents/Resources`, because `Bundle.module` looks in one place or the other depending on the Swift toolchain.
+`make app` wraps the release binary with `Info.plist`, `AppIcon.icns` and a resource bundle that carries `tweaks.json` into a launchable `SwiftDefaults.app`. The resource bundle ships in `Contents/Resources`, where the app reads it. The bundle holds nothing in the app root, because `codesign` seals only what lives in `Contents/`.
+
+`make dmg` and `make release-artifacts` need a version, for example `make release-artifacts VERSION=1.2.3`. `make release VERSION=1.2.3` builds the artifacts, creates the tag `v1.2.3` locally and prints the command that pushes it. It never pushes by itself.
 
 ### Running the tests
 
 The suite lives in `Tests/SwiftDefaultsTests/` and covers the parsing and registry contracts — 30 tests. Run it with:
 
 ```bash
-swift test
+make test
 ```
 
 ### Sanity-checking the registry

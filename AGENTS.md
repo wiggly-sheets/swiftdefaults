@@ -10,10 +10,10 @@
 - `SwiftDefaults/Resources/tweaks.json` — the tweak registry (93 entries, 21 categories, 16 subcategories across 7 fully split categories)
 - `SwiftDefaults/Info.plist` — bundle metadata (`LSMinimumSystemVersion` 15.0)
 - `Package.swift` — SPM executable target `SwiftDefaults` plus test target `SwiftDefaultsTests`, macOS 15, resources via `.process("Resources")`
-- `Makefile` — `build run clean release app-bundle app-bundle-debug run-bundle-debug`; builds the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand
+- `Makefile` — `help build test run app app-bundle-debug run-bundle-debug dmg release-artifacts release clean`; assembles the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand, signs the bundle ad-hoc, builds the disk image and its checksum file
 - `Tests/SwiftDefaultsTests/` — `ParsingTests`, `RegistryTests`, `TestSupport` (30 tests)
-- `.github/workflows/ci.yml` — `swift build` + `swift test` on push to main and on pull requests
-- `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests gate, versioned DMG, ad-hoc signed
+- `.github/workflows/ci.yml` — `make build` + `make test` on push to main and on pull requests
+- `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests gate, `make app` packages and signs the bundle, `make release-artifacts` writes the versioned DMG and its checksum file
 - `docs/ARCHITECTURE.md` — MVVM flow and restart handling
 - `CHANGELOG.md` — release notes
 - `Assets/app-icon.png` — README hero image, rendered from `SwiftDefaults/Resources/AppIcon.icns`
@@ -22,7 +22,7 @@
 
 - Swift Package Manager is canonical. `SwiftDefaults.xcodeproj` exists but is not authoritative.
 - Two targets: executable `SwiftDefaults` (path `SwiftDefaults/`) and test target `SwiftDefaultsTests` (path `Tests/SwiftDefaultsTests/`).
-- Resources: `tweaks.json` is processed via `.process("Resources")`. The `.app` does not ship SwiftPM's generated bundle: the `Makefile` builds `SwiftDefaults_SwiftDefaults.bundle` by hand in the classic macOS layout (`Contents/Info.plist`, `Contents/Resources/tweaks.json`, `Contents/Resources/AppIcon.icns`) and places it in BOTH the app root (where `Bundle.module` looks on SwiftPM 6.0–6.3) and `Contents/Resources`. The app reads the copy in `Contents/Resources` and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds neither. The copy in the app root is spare: the release workflow drops it, because `codesign` seals only what lives in `Contents/`.
+- Resources: `tweaks.json` is processed via `.process("Resources")`. The `.app` does not ship SwiftPM's generated bundle: the `Makefile` builds `SwiftDefaults_SwiftDefaults.bundle` by hand in the classic macOS layout (`Contents/Info.plist`, `Contents/Resources/tweaks.json`, `Contents/Resources/AppIcon.icns`) and places it in `Contents/Resources`. The app reads that copy and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds neither. The bundle holds nothing in the app root: `codesign` seals only what lives in `Contents/`, so a file in the app root makes the signing fail with "unsealed contents present in the bundle root". `make app` signs the bundle ad-hoc (`codesign --force --sign - --options runtime`).
 - Platforms: macOS 15+, Swift tools 6.0.
 
 ## Registry schema (`tweaks.json`)
@@ -74,14 +74,15 @@ Each entry is a `DefaultSetting`:
 ## Build / verify
 
 ```bash
-swift build
-swift build -c release
-swift test
+make build
+make test
+make app
 jq length SwiftDefaults/Resources/tweaks.json
-make app-bundle
 ```
 
-Tests live in `Tests/SwiftDefaultsTests/` (30 tests): `ParsingTests` covers boolean and numeric parsing, absence detection, staging and container rendering; `RegistryTests` covers the shipped registry and `validate()`. Run them with `swift test`.
+`make app` builds the release binary, assembles `SwiftDefaults.app`, stamps the version when `VERSION=` is given, signs the bundle ad-hoc and verifies the signature. `make dmg` and `make release-artifacts` need a version: `make release-artifacts VERSION=1.2.3`.
+
+Tests live in `Tests/SwiftDefaultsTests/` (30 tests): `ParsingTests` covers boolean and numeric parsing, absence detection, staging and container rendering; `RegistryTests` covers the shipped registry and `validate()`. Run them with `make test`.
 
 ## Git conventions
 
