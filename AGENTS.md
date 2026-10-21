@@ -13,7 +13,7 @@
 - `Makefile` — `build run clean release app-bundle app-bundle-debug run-bundle-debug`; builds the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand
 - `Tests/SwiftDefaultsTests/` — `ParsingTests`, `RegistryTests`, `TestSupport` (30 tests)
 - `.github/workflows/ci.yml` — `swift build` + `swift test` on push to main and on pull requests
-- `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests gate, versioned DMG, unsigned
+- `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests gate, versioned DMG, ad-hoc signed
 - `docs/ARCHITECTURE.md` — MVVM flow and restart handling
 - `CHANGELOG.md` — release notes
 - `Assets/app-icon.png` — README hero image, rendered from `SwiftDefaults/Resources/AppIcon.icns`
@@ -22,7 +22,7 @@
 
 - Swift Package Manager is canonical. `SwiftDefaults.xcodeproj` exists but is not authoritative.
 - Two targets: executable `SwiftDefaults` (path `SwiftDefaults/`) and test target `SwiftDefaultsTests` (path `Tests/SwiftDefaultsTests/`).
-- Resources: `tweaks.json` is processed via `.process("Resources")` and loaded with `Bundle.module` (under `SWIFT_PACKAGE`) falling back to `Bundle.main`. The `.app` does not ship SwiftPM's generated bundle: the `Makefile` builds `SwiftDefaults_SwiftDefaults.bundle` by hand in the classic macOS layout (`Contents/Info.plist`, `Contents/Resources/tweaks.json`, `Contents/Resources/AppIcon.icns`) and places it in BOTH the app root (where `Bundle.module` looks on SwiftPM 6.0–6.3) and `Contents/Resources` (where it looks on 6.4+), because `Bundle.module` fatalErrors when it finds neither.
+- Resources: `tweaks.json` is processed via `.process("Resources")`. The `.app` does not ship SwiftPM's generated bundle: the `Makefile` builds `SwiftDefaults_SwiftDefaults.bundle` by hand in the classic macOS layout (`Contents/Info.plist`, `Contents/Resources/tweaks.json`, `Contents/Resources/AppIcon.icns`) and places it in BOTH the app root (where `Bundle.module` looks on SwiftPM 6.0–6.3) and `Contents/Resources`. The app reads the copy in `Contents/Resources` and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds neither. The copy in the app root is spare: the release workflow drops it, because `codesign` seals only what lives in `Contents/`.
 - Platforms: macOS 15+, Swift tools 6.0.
 
 ## Registry schema (`tweaks.json`)

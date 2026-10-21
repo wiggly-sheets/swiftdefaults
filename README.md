@@ -85,7 +85,13 @@ You do not need to know what a domain or plist key is. But if you want to check,
 
 Download `SwiftDefaults-1.0.1.dmg` for macOS 15+ (Apple Silicon) from the [Releases page](https://github.com/wiggly-sheets/swiftdefaults/releases).
 
-It is **unsigned and not notarized**: no signing identity is used in this repo or in the release workflow, so Gatekeeper will block it on first open. Right-click the app and choose Open, or build from source. Signing and notarization are on the [Roadmap](#roadmap).
+It is **ad-hoc signed and not notarized**: the release workflow signs the bundle ad-hoc, so no developer identity is attached to it. macOS may still block the first open, because the app is not notarized. Control-click the app in Finder and choose Open, or remove the quarantine attribute:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/SwiftDefaults.app
+```
+
+Only run the quarantine command for apps you downloaded from a source you trust. Developer ID signing and notarization are on the [Roadmap](#roadmap).
 
 The release page also carries a checksum file, `SwiftDefaults-1.0.1.dmg.sha256`. Verify the download against it:
 
@@ -132,7 +138,7 @@ cp -r SwiftDefaults.app /Applications/
 
 Then double-click **SwiftDefaults** in Applications. No Xcode required — only the Swift toolchain.
 
-The bundle is unsigned, so macOS blocks the first open. Right-click **SwiftDefaults** in Applications, choose **Open**, then confirm.
+The bundle you build is unsigned, so macOS blocks the first open. Right-click **SwiftDefaults** in Applications, choose **Open**, then confirm.
 
 ---
 
@@ -239,7 +245,7 @@ SwiftDefaults writes system settings, so caution applies:
 - **Explicit engine only**: writes go through `/usr/bin/defaults` with typed flags (`-bool`, `-int`, `-string`, `-float`). No shell strings, no `sh -c`.
 - **You choose what goes**: the app shows what each toggle does; nothing applies at launch or in bulk.
 - **Open source**: the full write path (`DefaultsEngine`) and registry are in this repo to read or build yourself.
-- **Notarization: not yet** — releases are unsigned until the [Roadmap](#roadmap) items land. Building from source is the verifiable path today.
+- **Notarization: not yet** — releases are ad-hoc signed but not notarized until the [Roadmap](#roadmap) items land. Building from source is the verifiable path today.
 
 > [!CAUTION]
 > Some entries carry their own `CAUTION` in the description (e.g. quarantine warnings, auto-empty Bin, experimental appearance keys). Read the row before toggling. A few tweaks need their target app relaunched, or a logout, to take effect.

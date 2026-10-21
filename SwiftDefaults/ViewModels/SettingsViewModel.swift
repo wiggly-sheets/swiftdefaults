@@ -565,12 +565,7 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func loadRegistry() throws -> [DefaultSetting] {
-        #if SWIFT_PACKAGE
-        let bundles = [Bundle.module, Bundle.main]
-        #else
-        let bundles = [Bundle.main]
-        #endif
-        for bundle in bundles {
+        for bundle in Self.registryBundles() {
             if let url = bundle.url(forResource: "tweaks", withExtension: "json") {
                 let data = try Data(contentsOf: url)
                 let decoded = try JSONDecoder().decode([DefaultSetting].self, from: data)
@@ -579,6 +574,22 @@ final class SettingsViewModel: ObservableObject {
             }
         }
         throw RegistryError.missingFile
+    }
+
+    /// The app ships the registry in `Contents/Resources/SwiftDefaults_SwiftDefaults.bundle`.
+    /// `Bundle.module` fatalErrors when the toolchain looks for the bundle in the app root,
+    /// so read the shipped bundle first and keep `Bundle.module` for SwiftPM builds only.
+    private static func registryBundles() -> [Bundle] {
+        let main = Bundle.main
+        if let url = main.url(forResource: "SwiftDefaults_SwiftDefaults", withExtension: "bundle"),
+           let bundle = Bundle(url: url) {
+            return [bundle, main]
+        }
+        #if SWIFT_PACKAGE
+        return [Bundle.module, main]
+        #else
+        return [main]
+        #endif
     }
 
     static func validate(_ entries: [DefaultSetting]) throws {

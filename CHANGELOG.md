@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The release workflow now signs the app bundle ad-hoc before it builds the disk image. The app is still not notarized, so macOS may still block the first open.
+- The app reads the tweak registry from `Contents/Resources/SwiftDefaults_SwiftDefaults.bundle` and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds no bundle. The release workflow drops the spare copy of the bundle in the app root, because `codesign` seals only what lives in `Contents/`.
+
 ## [1.0.1] - 2026-10-19
 
 ### Changed

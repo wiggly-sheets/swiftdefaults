@@ -1,5 +1,5 @@
 # Release pipeline for SwiftDefaults.
-# Gate order: tag -> tests -> package -> verify -> dmg -> publish.
+# Gate order: tag -> tests -> package -> verify -> sign -> dmg -> publish.
 # Nothing is published unless `swift test` passes and the built bundle ships the tweak registry.
 
 name: SwiftDefaults Release
@@ -90,7 +90,7 @@ jobs:
           ICON="${APP}/Contents/Resources/AppIcon.icns"
           for path in "$REGISTRY" "$ROOT_REGISTRY"; do
             if [ ! -f "$path" ]; then
-              echo "::error::${path} is missing - the app crashes on launch without Bundle.module"
+              echo "::error::${path} is missing - the app crashes on launch without the registry"
               exit 1
             fi
           done
@@ -111,6 +111,19 @@ jobs:
           fi
           echo "Version: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP}/Contents/Info.plist")"
           echo "Build:   $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${APP}/Contents/Info.plist")"
+
+      - name: Sign bundle ad-hoc
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="SwiftDefaults.app"
+          # codesign seals what lives in Contents/. Anything else in the bundle root
+          # makes it refuse to sign, so the registry copy in the app root goes first.
+          # The app reads the registry from Contents/Resources, so the copy is spare.
+          rm -rf "${APP}/SwiftDefaults_SwiftDefaults.bundle"
+          # Identity "-" signs ad-hoc: no certificate, no timestamp, no notarization.
+          codesign --force --sign - --options runtime "$APP"
+          codesign --verify --deep --strict "$APP"
 
       - name: Create DMG
         shell: bash
