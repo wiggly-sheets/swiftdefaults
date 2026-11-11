@@ -1,5 +1,23 @@
 import SwiftUI
 
+struct StatusCircle: View {
+    let isEnabled: Bool
+    var body: some View {
+        Circle()
+            .fill(isEnabled ? .green : .gray)
+            .frame(width: 8, height: 8)
+    }
+}
+
+@available(macOS 26.0, *)
+struct GlassStatusCircle: View {
+    let isEnabled: Bool
+    var body: some View {
+        StatusCircle(isEnabled: isEnabled)
+            .glassEffect(.regular, in: .circle)
+    }
+}
+
 struct SettingRowView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
     let setting: DefaultSetting
@@ -8,10 +26,13 @@ struct SettingRowView: View {
 
     var body: some View {
         HStack {
-            Circle()
-                .fill(isEnabled ? .green : .gray)
-                .frame(width: 8, height: 8)
-                .accessibilityHidden(true)
+            if #available(macOS 26.0, *) {
+                GlassStatusCircle(isEnabled: isEnabled)
+                    .accessibilityHidden(true)
+            } else {
+                StatusCircle(isEnabled: isEnabled)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text(setting.title)
                     .font(.headline)
