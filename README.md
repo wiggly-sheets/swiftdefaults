@@ -125,15 +125,17 @@ cd swiftdefaults
 make run
 ```
 
-This builds a debug binary and launches it via `swift run`.
+`make run` builds the shipping bundle, installs it into `~/Applications` and
+launches it, so the app you run is the app you ship. `make run-bundle-debug`
+builds the debug bundle and opens it for a faster inner loop.
 
 ### Install manually
 
-Build the app bundle, then move it to Applications:
+Build the app bundle, then copy it to your Applications folder:
 
 ```bash
 make app
-cp -r SwiftDefaults.app /Applications/
+make install        # ~/Applications/SwiftDefaults.app
 ```
 
 Then double-click **SwiftDefaults** in Applications. No Xcode required — only the Swift toolchain.
@@ -199,19 +201,22 @@ swift run
 | Target | Command | Output |
 |--------|---------|--------|
 | `build` | `swift build` | Debug binary in `.build/debug/` |
-| `test` | `swift test` | Runs the test suite |
-| `run` | `swift run` | Builds and launches the app |
+| `test` | changelog check + `swift test` | Runs the test suite |
+| `verify` | checks the built bundle | Architecture, registry, version and signature |
+| `run` | `make install` then `open` | Installs and launches the app |
+| `install` | `make app` then copies | `~/Applications/SwiftDefaults.app` |
 | `app` | builds + assembles + signs `.app` | `SwiftDefaults.app` in repo root |
 | `app-bundle-debug` | builds + assembles `.app` | `SwiftDefaults-Debug.app` in repo root |
 | `run-bundle-debug` | builds + assembles `.app`, then opens it | Runs `SwiftDefaults-Debug.app` |
 | `dmg` | `make app` + `hdiutil` | `release/SwiftDefaults-<version>.dmg` |
-| `release-artifacts` | `make dmg` + `shasum` | The DMG and `release/SwiftDefaults-<version>.dmg.sha256` |
-| `release VERSION=x.y.z` | builds + tags locally | Tag `v<x.y.z>`, prints the push command |
+| `release-artifacts` | `make dmg` + `shasum` + `shasum -c` | The DMG and its verified `.sha256` |
+| `release-notes VERSION=x.y.z` | prints the changelog section | Release body |
+| `release VERSION=x.y.z` | bump, test, build, verify, commit, tag | Tag `v<x.y.z>`, prints the push commands |
 | `clean` | removes the build output | Clears `.build/`, the bundles and `release/` |
 
 `make app` wraps the release binary with `Info.plist`, `AppIcon.icns` and a resource bundle that carries `tweaks.json` into a launchable `SwiftDefaults.app`. The resource bundle ships in `Contents/Resources`, where the app reads it. The bundle holds nothing in the app root, because `codesign` seals only what lives in `Contents/`.
 
-`make dmg` and `make release-artifacts` need a version, for example `make release-artifacts VERSION=1.2.3`. `make release VERSION=1.2.3` builds the artifacts, creates the tag `v1.2.3` locally and prints the command that pushes it. It never pushes by itself.
+`make dmg` and `make release-artifacts` need a version, for example `make release-artifacts VERSION=1.2.3`. `make release VERSION=1.2.3` moves `[Unreleased]` to that version, runs the tests, builds and verifies the artifacts, commits the changelog bump and creates the tag `v1.2.3`. It prints the push commands and never pushes by itself.
 
 ### Running the tests
 

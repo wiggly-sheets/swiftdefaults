@@ -35,41 +35,7 @@ jobs:
       - name: Package .app bundle
         run: make app
 
+      # Checks the registry, the icon, the app root, the architecture and the
+      # signature in one place, so the same gate runs locally.
       - name: Verify bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP="SwiftDefaults.app"
-          REGISTRY="${APP}/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
-          ROOT_REGISTRY="${APP}/SwiftDefaults_SwiftDefaults.bundle"
-          ICON="${APP}/Contents/Resources/AppIcon.icns"
-          # The bundle ships the registry in Contents/Resources only. The copy in the app
-          # root is gone, because codesign seals only what lives in Contents/.
-          if [ ! -f "$REGISTRY" ]; then
-            echo "::error::${REGISTRY} is missing - the app crashes on launch without the registry, which now ships in Contents/Resources only"
-            exit 1
-          fi
-          if [ -e "$ROOT_REGISTRY" ]; then
-            echo "::error::${ROOT_REGISTRY} is in the app root again - codesign refuses to sign a bundle with unsealed contents"
-            exit 1
-          fi
-          if [ ! -f "$ICON" ]; then
-            echo "::error::${ICON} is missing - the bundle ships no icon"
-            exit 1
-          fi
-
-      - name: Registry sanity
-        shell: bash
-        run: |
-          set -euo pipefail
-          REGISTRY="SwiftDefaults/Resources/tweaks.json"
-          COUNT="$(jq length "$REGISTRY")"
-          if [ "$COUNT" -lt 1 ]; then
-            echo "::error::${REGISTRY} is empty"
-            exit 1
-          fi
-          if ! jq -e 'all(.[]; .id and .category and .title and .description and .domain and .key and .type and (.onValue != null) and (.offValue != null))' "$REGISTRY" > /dev/null; then
-            echo "::error::${REGISTRY} has an entry missing a required field"
-            exit 1
-          fi
-          echo "registry holds ${COUNT} entries"
+        run: make verify

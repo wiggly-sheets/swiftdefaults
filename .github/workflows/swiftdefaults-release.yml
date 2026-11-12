@@ -1,8 +1,9 @@
 # Release pipeline for SwiftDefaults.
-# Gate order: tag -> tests -> package -> verify -> dmg -> publish.
-# Nothing is published unless `make test` passes and the built bundle ships the tweak registry.
-# The packaging lives in the Makefile: `make app` assembles and signs the bundle,
-# `make release-artifacts` builds the disk image and its checksum file.
+# Gate order: tag -> tests -> artifacts -> verify -> notes -> publish.
+# Nothing is published unless `make test` passes and the built bundle ships the
+# tweak registry. The packaging lives in the Makefile: `make app` assembles and
+# signs the bundle, `make release-artifacts` builds the disk image and its
+# checksum file, `make verify` checks the result.
 
 name: SwiftDefaults Release
 
@@ -40,19 +41,11 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
             echo "::error::Tag '${GITHUB_REF_NAME}' is not a vMAJOR.MINOR.PATCH tag"
             exit 1
           fi
-          DMG="SwiftDefaults-${VERSION}.dmg"
-          {
-            echo "version=${VERSION}"
-            echo "dmg=release/${DMG}"
-            echo "files<<EOF"
-            echo "release/${DMG}"
-            echo "release/${DMG}.sha256"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Releasing ${VERSION}"
 
       - name: Tag must sit on main
@@ -68,65 +61,35 @@ jobs:
       - name: Test
         run: make test
 
-      - name: Package .app bundle
-        run: make app VERSION=${{ steps.meta.outputs.version }}
-
-      - name: Verify bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP="SwiftDefaults.app"
-          REGISTRY="${APP}/Contents/Resources/SwiftDefaults_SwiftDefaults.bundle/Contents/Resources/tweaks.json"
-          ROOT_REGISTRY="${APP}/SwiftDefaults_SwiftDefaults.bundle"
-          ICON="${APP}/Contents/Resources/AppIcon.icns"
-          # The bundle ships the registry in Contents/Resources only. The copy in the app
-          # root is gone, because codesign seals only what lives in Contents/.
-          if [ ! -f "$REGISTRY" ]; then
-            echo "::error::${REGISTRY} is missing - the app crashes on launch without the registry, which now ships in Contents/Resources only"
-            exit 1
-          fi
-          if [ -e "$ROOT_REGISTRY" ]; then
-            echo "::error::${ROOT_REGISTRY} is in the app root again - codesign refuses to sign a bundle with unsealed contents"
-            exit 1
-          fi
-          if [ ! -f "$ICON" ]; then
-            echo "::error::${ICON} is missing - the bundle ships no icon"
-            exit 1
-          fi
-          ARCHS="$(lipo -archs "${APP}/Contents/MacOS/SwiftDefaults")"
-          if [ "$ARCHS" != "arm64" ]; then
-            echo "::error::Expected an arm64 binary, got ${ARCHS}"
-            exit 1
-          fi
-          EXPECTED="$(jq length SwiftDefaults/Resources/tweaks.json)"
-          ACTUAL="$(jq length "$REGISTRY")"
-          if [ "$ACTUAL" != "$EXPECTED" ]; then
-            echo "::error::Shipped registry holds ${ACTUAL} entries, source holds ${EXPECTED}"
-            exit 1
-          fi
-          echo "Version: $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "${APP}/Contents/Info.plist")"
-          echo "Build:   $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "${APP}/Contents/Info.plist")"
-
-      - name: Create DMG
+      - name: Build the release artifacts
         run: make release-artifacts VERSION=${{ steps.meta.outputs.version }}
 
-      - name: Extract release notes
-        shell: bash
+      - name: Verify bundle
+        run: make verify VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Write the release notes
         env:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -euo pipefail
-          awk -v v="$VERSION" '
-            BEGIN { gsub(/\./, "\\.", v) }
-            $0 ~ ("^## \\[" v "\\]") { f = 1; next }
-            f && /^## \[/ { f = 0 }
-            f { print }
-          ' CHANGELOG.md > release-notes.md
+          ./scripts/changelog.sh notes "$VERSION" > release-notes.md
+          {
+            echo ""
+            echo "## Checksums"
+            echo ""
+            echo '```'
+            cat release/*.sha256
+            echo '```'
+          } >> release-notes.md
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          name: SwiftDefaults ${{ steps.meta.outputs.version }}
+          tag_name: ${{ github.ref_name }}
           body_path: release-notes.md
-          files: ${{ steps.meta.outputs.files }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            release/*.dmg
+            release/*.sha256
           fail_on_unmatched_files: true
-          generate_release_notes: true

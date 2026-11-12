@@ -8,6 +8,8 @@ APP_NAME := SwiftDefaults
 SRC_DIR  := $(APP_NAME)
 APP_BUNDLE := $(APP_NAME).app
 APP_BUNDLE_DEBUG := $(APP_NAME)-Debug.app
+INSTALL_DIR ?= $(HOME)/Applications
+INSTALL_APP := $(INSTALL_DIR)/$(APP_BUNDLE)
 ICON := $(SRC_DIR)/Resources/AppIcon.icns
 ENTITLEMENTS := $(SRC_DIR)/$(APP_NAME).entitlements
 # SwiftPM generates this; Bundle.module fatalErrors without it, so the .app must ship it.
@@ -40,8 +42,8 @@ BUILD_NUMBER := $(shell printf '%s' '$(VERSION)' | tr -cd '0-9')
 # The name of the disk image. The tap matches the asset by name, so it never changes.
 DMG_NAME := $(APP_NAME)-$(VERSION).dmg
 
-.PHONY: help build test run app app-bundle-debug run-bundle-debug \
-	dmg release-artifacts release clean _require_version
+.PHONY: help build test verify run install app app-bundle-debug run-bundle-debug \
+	dmg release-artifacts release-notes release clean _require_version
 
 .DEFAULT_GOAL := help
 
@@ -53,14 +55,17 @@ help:
 		'' \
 		'  help                 List every target (default).' \
 		'  build                Build the SwiftPM package.' \
-		'  test                 Run the SwiftPM test suite.' \
-		'  run                  Build and run the app from the command line.' \
+		'  test                 Run the changelog check and the SwiftPM test suite.' \
+		'  verify               Check the bundle, its registry and its signature.' \
+		'  run                  Install the app bundle into ~/Applications and launch it.' \
+		'  install              Copy the app bundle into ~/Applications.' \
 		'  app                  Build the shipping bundle into SwiftDefaults.app and sign it ad-hoc.' \
 		'  app-bundle-debug     Build the debug bundle into SwiftDefaults-Debug.app.' \
 		'  run-bundle-debug     Build the debug bundle and open it.' \
 		'  dmg                  Build the disk image release/SwiftDefaults-<version>.dmg.' \
-		'  release-artifacts    Build the DMG and write its checksum file for the Homebrew tap.' \
-		'  release VERSION=x.y.z  Build the artifacts, tag v<x.y.z> locally, print the push command.' \
+		'  release-artifacts    Build the DMG and its checksum file, then verify the checksum.' \
+		'  release-notes VERSION=x.y.z  Print the changelog section of a version.' \
+		'  release VERSION=x.y.z  Bump the changelog, test, build, verify, commit and tag.' \
 		'  clean                Remove the build output.' \
 		'' \
 		'Notes' \
@@ -69,10 +74,12 @@ help:
 		'  SwiftDefaults is Apple silicon only (arm64), so there is no per-architecture target.' \
 		'  The tweak registry ships in Contents/Resources, where the app reads it. The bundle' \
 		'  holds nothing in the app root, because codesign seals only what lives in Contents/.' \
+		'  CHANGELOG.md follows the shared shape and `make test` checks it.' \
 		'  Signing stays ad-hoc: codesign --force --sign - --options runtime. There is no' \
 		'  Developer ID identity and no notarization.' \
-		'  `make release VERSION=1.2.3` builds the artifacts, creates the tag v1.2.3 locally and' \
-		'  prints the command that pushes the commit and the tag. It never pushes by itself.'
+		'  `make release VERSION=1.2.3` moves [Unreleased] to the version, runs the tests,' \
+		'  builds and verifies the artifacts, commits the bump and creates the tag v1.2.3.' \
+		'  It prints the push commands and never pushes by itself.'
 
 ## build — build the package
 
@@ -82,12 +89,72 @@ build:
 ## test — run the test suite
 
 test:
+	./scripts/changelog.sh check
 	swift test $(LINK_SDK_FLAGS)
 
-## run — build and run the app
+## verify — check the built bundle
 
-run:
-	swift run $(LINK_SDK_FLAGS)
+verify:
+	@test -d "$(APP_BUNDLE)" || { \
+		echo "error: $(APP_BUNDLE) is missing. Run make app first."; \
+		exit 1; \
+	}
+	@registry="$(APP_BUNDLE)/Contents/Resources/$(RESOURCE_BUNDLE)/Contents/Resources/tweaks.json"; \
+	test -f "$$registry" || { \
+		echo "error: $$registry is missing; the app cannot load its registry."; \
+		exit 1; \
+	}; \
+	test ! -e "$(APP_BUNDLE)/$(RESOURCE_BUNDLE)" || { \
+		echo "error: $(APP_BUNDLE)/$(RESOURCE_BUNDLE) is in the app root; codesign will refuse it."; \
+		exit 1; \
+	}; \
+	test -f "$(APP_BUNDLE)/Contents/Resources/AppIcon.icns" || { \
+		echo "error: the bundle ships no AppIcon.icns."; \
+		exit 1; \
+	}; \
+	count="$$(jq length "$$registry")"; \
+	source_count="$$(jq length "$(SRC_DIR)/Resources/tweaks.json")"; \
+	echo "Registry: $$count entries (source: $$source_count)"; \
+	test "$$count" = "$$source_count" || { \
+		echo "error: the shipped registry holds $$count entries, the source holds $$source_count."; \
+		exit 1; \
+	}; \
+	jq -e 'length >= 1 and all(.[]; .id and .category and .title and .description and .domain and .key and .type and (.onValue != null) and (.offValue != null))' "$$registry" >/dev/null || { \
+		echo "error: the registry has an entry without a required field."; \
+		exit 1; \
+	}
+	@binary="$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"; \
+	archs="$$(lipo -archs "$$binary")"; \
+	echo "Architectures: $$archs"; \
+	test "$$archs" = "arm64" || { \
+		echo "error: expected an arm64 binary, got $$archs."; \
+		exit 1; \
+	}
+	@if [ -n "$(strip $(VERSION))" ]; then \
+		version="$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$(APP_BUNDLE)/Contents/Info.plist")"; \
+		echo "Bundle version: $$version (expected $(VERSION))"; \
+		test "$$version" = "$(VERSION)" || { \
+			echo "error: the bundle reports $$version, but $(VERSION) was expected."; \
+			exit 1; \
+		}; \
+	else \
+		echo "Bundle version: $$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$(APP_BUNDLE)/Contents/Info.plist") (no VERSION given)"; \
+	fi
+	codesign --verify --deep --strict "$(APP_BUNDLE)"
+	@echo "Verified $(APP_BUNDLE)."
+
+## run — install the bundle and launch it
+
+run: install
+	open "$(INSTALL_APP)"
+
+## install — copy the bundle into ~/Applications
+
+install: app
+	mkdir -p "$(INSTALL_DIR)"
+	rm -rf "$(INSTALL_APP)"
+	cp -R "$(APP_BUNDLE)" "$(INSTALL_APP)"
+	@echo "Installed $(INSTALL_APP)"
 
 ## app — the bundle the product ships
 
@@ -129,26 +196,23 @@ dmg: _require_version app
 
 release-artifacts: dmg
 	@cd "$(RELEASE_DIR)" && shasum -a 256 "$(DMG_NAME)" > "$(DMG_NAME).sha256"
+	@cd "$(RELEASE_DIR)" && shasum -a 256 -c "$(DMG_NAME).sha256"
 	@echo "$(RELEASE_DIR)/$(DMG_NAME).sha256:"
 	@cat "$(RELEASE_DIR)/$(DMG_NAME).sha256"
 
-## release — build the artifacts and tag them, without pushing
+## release-notes — print the changelog section of a version
+
+release-notes:
+	@if [ -z "$(strip $(VERSION))" ]; then \
+		echo "error: make release-notes needs a version, for example: make release-notes VERSION=1.2.3"; \
+		exit 1; \
+	fi
+	@./scripts/changelog.sh notes "$(VERSION)"
+
+## release — bump, test, build, verify, commit and tag, without pushing
 
 release: _require_version
-	@if [ -n "$$(git status --porcelain)" ]; then \
-		echo "error: the working tree is dirty. Commit or stash your changes first."; \
-		git status --short; \
-		exit 1; \
-	fi
-	@if git rev-parse -q --verify "refs/tags/v$(VERSION)" >/dev/null; then \
-		echo "error: the tag v$(VERSION) already exists."; \
-		exit 1; \
-	fi
-	$(MAKE) release-artifacts VERSION=$(VERSION)
-	git tag -a "v$(VERSION)" -m "$(APP_NAME) $(VERSION)"
-	@echo ""
-	@echo "Tagged v$(VERSION). Push the commit and the tag with:"
-	@echo "  git push origin main --tags"
+	@APP_NAME="$(APP_NAME)" ./scripts/release.sh "$(VERSION)"
 
 ## clean — remove everything the build produces
 

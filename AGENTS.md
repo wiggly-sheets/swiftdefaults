@@ -10,12 +10,14 @@
 - `SwiftDefaults/Resources/tweaks.json` — the tweak registry (93 entries, 21 categories, 16 subcategories across 7 fully split categories)
 - `SwiftDefaults/Info.plist` — bundle metadata (`LSMinimumSystemVersion` 15.0)
 - `Package.swift` — SPM executable target `SwiftDefaults` plus test target `SwiftDefaultsTests`, macOS 15, resources via `.process("Resources")`
-- `Makefile` — `help build test run app app-bundle-debug run-bundle-debug dmg release-artifacts release clean`; assembles the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand, signs the bundle ad-hoc, builds the disk image and its checksum file
+- `Makefile` — `help build test verify run install app app-bundle-debug run-bundle-debug dmg release-artifacts release-notes release clean`; assembles the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand, signs the bundle ad-hoc, installs to `~/Applications`, builds and verifies the disk image and its checksum file
+- `scripts/changelog.sh` — the shared changelog shape: `check`, `bump X.Y.Z`, `notes X.Y.Z`
+- `scripts/release.sh` — the release driver: bump the changelog, test, build, verify, commit the bump, tag
 - `Tests/SwiftDefaultsTests/` — `ParsingTests`, `RegistryTests`, `TestSupport` (30 tests)
-- `.github/workflows/ci.yml` — `make build` + `make test` on push to main and on pull requests
-- `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests gate, `make app` packages and signs the bundle, `make release-artifacts` writes the versioned DMG and its checksum file
+- `.github/workflows/ci.yml` — `make build`, `make test`, `make app`, `make verify` on push to main and on pull requests
+- `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests, `make release-artifacts`, `make verify`, `scripts/changelog.sh notes`, publish
 - `docs/ARCHITECTURE.md` — MVVM flow and restart handling
-- `CHANGELOG.md` — release notes
+- `CHANGELOG.md` — release notes, checked by `make test`
 - `Assets/app-icon.png` — README hero image, rendered from `SwiftDefaults/Resources/AppIcon.icns`
 
 ## SPM layout
