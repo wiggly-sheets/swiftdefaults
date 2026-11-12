@@ -23,6 +23,17 @@ DMG_STAGE := $(SPM_DIR)/dmg-stage
 # It never comes from a file in the repository.
 VERSION ?=
 
+# SwiftPM's build engine records the deployment target in LC_BUILD_VERSION's sdk
+# field. macOS reads that field to decide whether an app gets the Liquid Glass
+# design, so a plain `swift build` looks like a macOS 15 binary to AppKit even
+# when the newest SDK is installed. Restate the real SDK version at link time.
+# Keep the deployment target in sync with `platforms` in Package.swift and
+# LSMinimumSystemVersion in Info.plist.
+MACOS_DEPLOYMENT_TARGET := 15.0
+MACOS_SDK_VERSION := $(shell xcrun --sdk macosx --show-sdk-version)
+LINK_SDK_FLAGS := -Xlinker -platform_version -Xlinker macos \
+	-Xlinker $(MACOS_DEPLOYMENT_TARGET) -Xlinker $(MACOS_SDK_VERSION)
+
 # The build number is the version without its dots and letters: 1.2.3 gives 123.
 BUILD_NUMBER := $(shell printf '%s' '$(VERSION)' | tr -cd '0-9')
 
@@ -66,22 +77,22 @@ help:
 ## build — build the package
 
 build:
-	swift build
+	swift build $(LINK_SDK_FLAGS)
 
 ## test — run the test suite
 
 test:
-	swift test
+	swift test $(LINK_SDK_FLAGS)
 
 ## run — build and run the app
 
 run:
-	swift run
+	swift run $(LINK_SDK_FLAGS)
 
 ## app — the bundle the product ships
 
 app:
-	swift build -c release
+	swift build -c release $(LINK_SDK_FLAGS)
 	$(call assemble_bundle,$(SPM_RELEASE_DIR)/$(APP_NAME),$(APP_BUNDLE))
 	@if [ -n "$(strip $(VERSION))" ]; then \
 		/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" "$(APP_BUNDLE)/Contents/Info.plist"; \
@@ -94,7 +105,7 @@ app:
 ## app-bundle-debug — the bundle for development
 
 app-bundle-debug:
-	swift build
+	swift build $(LINK_SDK_FLAGS)
 	$(call assemble_bundle,$(SPM_DEBUG_DIR)/$(APP_NAME),$(APP_BUNDLE_DEBUG))
 	@echo "Built $(APP_BUNDLE_DEBUG)"
 

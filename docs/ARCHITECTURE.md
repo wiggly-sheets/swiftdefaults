@@ -44,6 +44,20 @@ Edits are staged locally first: `stage` / `stageOption` validate and store canon
 
 The original is captured once (`capturedIds`) as a typed `SettingValue`, during the first read in `refresh()`; a value that does not match its declared type is not captured, and neither is one that reads back as a plist container, since any text parses as a String and a lossy restore is worse than no button. `revert` rewrites the captured value, or `delete`s the key when it was absent — restoring the system default for keys the app created. `defaultValue` never enters that choice: it is display-only, the fallback `fallbackString` shows for a key with nothing on disk. `canRevert` reads `appliedIds`, not `capturedIds`, so the button appears only for a key this session actually wrote, and after a successful revert the id leaves `capturedIds`, `appliedIds` and `originalValues`, which resets `canRevert`, `canRevertAll`, and `isResetDisabled`. `resetAll` discards pending edits and reverts every id this session applied (`appliedIds`).
 
+## Liquid Glass
+
+The app builds against the macOS 27.2 SDK and targets macOS 15, so it ships one arm64 binary that runs everywhere from 15 up. The SDK is what makes the system chrome native: because `Info.plist` carries no `UIDesignRequiresCompatibility` key, macOS 26 and 27 draw the `NavigationSplitView`, sidebar, toolbar, list, toggles, pickers and text fields with Liquid Glass automatically.
+
+One build detail matters for that. SwiftPM's build engine stamps the deployment target (15.0) into the Mach-O's `LC_BUILD_VERSION` SDK field, and AppKit reads that field to decide whether an app is eligible for the Liquid Glass design — so a plain `swift build` produces a binary that looks like it was linked against the macOS 15 SDK. The `Makefile` therefore restates the real SDK version at link time (`-platform_version macos 15.0 <installed SDK>`), which makes `vtool -show-build` report `minos 15.0, sdk 27.2`. Build through `make build` / `make app`, not a bare `swift build`, or the app loses the system glass.
+
+Custom surfaces are the only place the views name glass APIs, and every one is behind `#available(macOS 26.0, *)` so macOS 15–25 keep the plain rendering:
+
+- `ContentView.toolbarContent` puts Apply and Reset in a `GlassEffectContainer`, gives them `.buttonStyle(.glassProminent)` and `.buttonStyle(.glass)`, and tags them with `glassEffectID` in a shared namespace so the system can merge their shapes.
+- The pending-count chip is its own glass capsule with `glassEffectID("pending")` and a `.matchedGeometry` glass transition, so it materialises beside the buttons instead of popping in.
+- `GlassStatusCircle` in `SettingRowView` wraps the status dot in `.glassEffect(.regular.tint(...), in: .circle)`, producing a tinted glass bead.
+
+Glass stays on controls, not on content: the detail list and sidebar keep the system background rather than stacking custom glass on top of the window's material. Do not add a glass effect to standard controls that the OS already styles, and do not lower the `#available` checks to the deployment target.
+
 ## Files and targets
 
 Swift Package Manager is the canonical build. `Package.swift` declares two targets: the executable `SwiftDefaults` (path `SwiftDefaults/`) and the test target `SwiftDefaultsTests` (path `Tests/SwiftDefaultsTests/`). The tests live in `Tests/SwiftDefaultsTests/`: `ParsingTests` covers the pure parsing, staging and rendering contracts, `RegistryTests` covers the shipped registry and `validate()`, and `TestSupport` holds the shared fixtures. Nothing in the suite spawns `defaults` or touches a real domain.

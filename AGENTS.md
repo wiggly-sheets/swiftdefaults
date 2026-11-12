@@ -82,6 +82,8 @@ jq length SwiftDefaults/Resources/tweaks.json
 
 `make app` builds the release binary, assembles `SwiftDefaults.app`, stamps the version when `VERSION=` is given, signs the bundle ad-hoc and verifies the signature. `make dmg` and `make release-artifacts` need a version: `make release-artifacts VERSION=1.2.3`.
 
+Build through `make`, not a bare `swift build`. SwiftPM records the deployment target in the Mach-O's `LC_BUILD_VERSION` SDK field, and macOS uses that field to decide whether an app gets the Liquid Glass design. The Makefile restates the installed SDK version at link time; `vtool -show-build SwiftDefaults.app/Contents/MacOS/SwiftDefaults` must report `minos 15.0` and the current SDK (27.2 here).
+
 Tests live in `Tests/SwiftDefaultsTests/` (30 tests): `ParsingTests` covers boolean and numeric parsing, absence detection, staging and container rendering; `RegistryTests` covers the shipped registry and `validate()`. Run them with `make test`.
 
 ## Git conventions

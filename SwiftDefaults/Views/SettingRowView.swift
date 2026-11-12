@@ -14,7 +14,11 @@ struct GlassStatusCircle: View {
     let isEnabled: Bool
     var body: some View {
         StatusCircle(isEnabled: isEnabled)
-            .glassEffect(.regular, in: .circle)
+            .padding(3)
+            .glassEffect(
+                .regular.tint((isEnabled ? Color.green : Color.gray).opacity(0.3)),
+                in: .circle
+            )
     }
 }
 

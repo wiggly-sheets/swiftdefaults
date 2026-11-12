@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Liquid Glass now renders natively on macOS 26 and 27, built against the macOS 27.2 SDK. The toolbar's Apply and Reset buttons use the native glass button styles and share a `GlassEffectContainer`, the pending-count chip morphs in and out of that group with a matched-geometry glass transition, and the row status dot is a tinted glass bead. macOS 15 and later still build and run the same binary with the plain controls; the glass path is gated with `#available(macOS 26.0, *)`.
+- `make build`, `make test`, `make run`, `make app` and `make app-bundle-debug` restate the installed SDK version in `LC_BUILD_VERSION`. SwiftPM otherwise records the 15.0 deployment target there, which makes macOS treat the app as linked against an old SDK and skip the Liquid Glass design for the window chrome. `vtool -show-build` on a `make app` binary now reports `minos 15.0, sdk 27.2`.
+
 ### Changed
 
 - The Makefile follows the shared build vocabulary: `make` prints the targets, and `make build`, `make test`, `make app`, `make dmg`, `make release-artifacts`, `make release VERSION=x.y.z` and `make clean` do the work. SwiftDefaults is Apple silicon only, so there is no per-architecture target.

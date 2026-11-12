@@ -52,13 +52,19 @@ struct ContentView: View {
         if #available(macOS 26.0, *) {
             GlassEffectContainer(spacing: 8) {
                 if viewModel.hasPending {
-                    pendingLabel
+                    pendingChip
+                        .glassEffectID("pending", in: toolbarNamespace)
+                        .glassEffectTransition(.matchedGeometry)
                 }
                 resetButton
+                    .buttonStyle(.glass)
                     .glassEffectID("reset", in: toolbarNamespace)
                 applyButton
+                    .buttonStyle(.glassProminent)
                     .glassEffectID("apply", in: toolbarNamespace)
             }
+            .animation(.smooth(duration: 0.25), value: viewModel.hasPending)
+            .animation(.smooth(duration: 0.25), value: viewModel.pendingValues.count)
         } else {
             if viewModel.hasPending {
                 pendingLabel
@@ -68,9 +74,21 @@ struct ContentView: View {
         }
     }
 
+    /// The pending count sits on its own glass capsule, so it can morph into the
+    /// Apply button as edits appear and disappear.
+    @available(macOS 26.0, *)
+    private var pendingChip: some View {
+        pendingLabel
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .glassEffect(.regular, in: .capsule)
+    }
+
     private var pendingLabel: some View {
         Text("\(viewModel.pendingValues.count) pending")
             .font(.caption)
+            .monospacedDigit()
+            .contentTransition(.numericText())
             .foregroundStyle(.secondary)
     }
 
