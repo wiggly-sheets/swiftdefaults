@@ -20,12 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make release VERSION=x.y.z` refuses a dirty working tree and a version whose tag already exists, builds the artifacts, creates the annotated tag `v<x.y.z>` locally and prints the command that pushes the commit and the tag. It never pushes by itself.
 - The app reads the tweak registry from `Contents/Resources/SwiftDefaults_SwiftDefaults.bundle` and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds no bundle. The bundle no longer holds the spare copy in the app root, because `codesign` seals only what lives in `Contents/`.
 
-## [1.0.2-rc.1] - 2026-11-13
-
-### Added
-
-- Release pipeline trial.
-
 ## [1.0.1] - 2026-10-19
 
 ### Changed
