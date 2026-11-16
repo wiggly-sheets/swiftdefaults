@@ -13,7 +13,7 @@
 - `Makefile` — `help build test verify run install app app-bundle-debug run-bundle-debug dmg release-artifacts release-notes release clean`; assembles the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand, signs the bundle ad-hoc, installs to `~/Applications`, builds and verifies the disk image and its checksum file
 - `scripts/changelog.sh` — the shared changelog shape: `check`, `bump X.Y.Z`, `notes X.Y.Z`
 - `scripts/release.sh` — the release driver: bump the changelog, test, build, verify, commit the bump, tag
-- `Tests/SwiftDefaultsTests/` — `ParsingTests`, `RegistryTests`, `TestSupport` (30 tests)
+- `Tests/SwiftDefaultsTests/` — `ParsingTests`, `RegistryTests`, `TestSupport` (27 tests)
 - `.github/workflows/ci.yml` — `make build`, `make test`, `make app`, `make verify` on push to main and on pull requests
 - `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests, `make release-artifacts`, `make verify`, `scripts/changelog.sh notes`, publish
 - `docs/ARCHITECTURE.md` — MVVM flow and restart handling
@@ -86,7 +86,7 @@ jq length SwiftDefaults/Resources/tweaks.json
 
 Build through `make`, not a bare `swift build`. SwiftPM records the deployment target in the Mach-O's `LC_BUILD_VERSION` SDK field, and macOS uses that field to decide whether an app gets the Liquid Glass design. The Makefile restates the installed SDK version at link time; `vtool -show-build SwiftDefaults.app/Contents/MacOS/SwiftDefaults` must report `minos 15.0` and the current SDK (27.2 here).
 
-Tests live in `Tests/SwiftDefaultsTests/` (30 tests): `ParsingTests` covers boolean and numeric parsing, absence detection, staging and container rendering; `RegistryTests` covers the shipped registry and `validate()`. Run them with `make test`.
+Tests live in `Tests/SwiftDefaultsTests/` (27 tests): `ParsingTests` covers boolean and numeric parsing, absence detection, staging and container rendering; `RegistryTests` covers the shipped registry and `validate()`. Run them with `make test`.
 
 ## Git conventions
 

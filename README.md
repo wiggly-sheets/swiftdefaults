@@ -220,7 +220,7 @@ swift run
 
 ### Running the tests
 
-The suite lives in `Tests/SwiftDefaultsTests/` and covers the parsing and registry contracts — 30 tests. Run it with:
+The suite lives in `Tests/SwiftDefaultsTests/` and covers the parsing and registry contracts — 27 tests. Run it with:
 
 ```bash
 make test

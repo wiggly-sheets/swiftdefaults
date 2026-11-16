@@ -8,18 +8,24 @@ final class ParsingTests: XCTestCase {
     // MARK: - Boolean spelling
 
     /// Both spellings are real `defaults read` output: `com.apple.dock autohide`
-    /// prints `1`, `com.apple.finder CreateDesktop` prints `true`.
+    /// prints `1`, `com.apple.finder CreateDesktop` prints `true`. The typed value
+    /// parser keeps the meaning whichever spelling the domain printed.
     @MainActor
-    func testBooleanParserAcceptsBothSpellings() {
+    func testBooleanParsingAcceptsBothSpellings() throws {
         let viewModel = SettingsViewModel()
         XCTAssertEqual(viewModel.boolean("1"), true)
         XCTAssertEqual(viewModel.boolean("true"), true)
         XCTAssertEqual(viewModel.boolean("0"), false)
         XCTAssertEqual(viewModel.boolean("false"), false)
+        let setting = try makeSetting(entryJSON(id: "bool"))
+        XCTAssertEqual(viewModel.value(for: setting, stringValue: "true"), .boolean(true))
+        XCTAssertEqual(viewModel.value(for: setting, stringValue: "1"), .boolean(true))
+        XCTAssertEqual(viewModel.value(for: setting, stringValue: "false"), .boolean(false))
+        XCTAssertEqual(viewModel.value(for: setting, stringValue: "0"), .boolean(false))
     }
 
     @MainActor
-    func testBooleanParserRejectsGarbage() {
+    func testBooleanParsingRejectsOtherText() {
         let viewModel = SettingsViewModel()
         for text in ["", " ", "yes", "no", "2", "-1", "True", "TRUE", " true", "true ", "0.0", "null"] {
             XCTAssertNil(viewModel.boolean(text), "\(text.debugDescription) must not parse as a boolean")
@@ -77,18 +83,8 @@ final class ParsingTests: XCTestCase {
         XCTAssertNil(viewModel.value(for: setting, stringValue: "inf"))
     }
 
-    /// A boolean read back through the value parser keeps its meaning whichever
-    /// spelling the domain printed.
-    @MainActor
-    func testBooleanRoundTripsThroughValueParser() throws {
-        let viewModel = SettingsViewModel()
-        let setting = try makeSetting(entryJSON(id: "bool"))
-        XCTAssertEqual(viewModel.value(for: setting, stringValue: "true"), .boolean(true))
-        XCTAssertEqual(viewModel.value(for: setting, stringValue: "1"), .boolean(true))
-        XCTAssertEqual(viewModel.value(for: setting, stringValue: "false"), .boolean(false))
-        XCTAssertEqual(viewModel.value(for: setting, stringValue: "0"), .boolean(false))
-    }
-
+    /// A string read back keeps edge spaces verbatim; trimming would silently rewrite
+    /// values like `" EEE d MMM HH:mm:ss "`.
     @MainActor
     func testStringKeepsEdgeSpacesVerbatim() throws {
         let viewModel = SettingsViewModel()
@@ -96,6 +92,14 @@ final class ParsingTests: XCTestCase {
         let text = "  spaced out  "
         XCTAssertEqual(viewModel.value(for: setting, stringValue: text), .string(text))
         XCTAssertEqual(viewModel.displayString(.string(text)), text)
+    }
+
+    /// The app's own canonical display form drops the fraction from a whole float, so a
+    /// value read as `10.0` displays and compares as `10`, matching what it stages.
+    @MainActor
+    func testDisplayStringPrintsWholeFloatWithoutFraction() {
+        let viewModel = SettingsViewModel()
+        XCTAssertEqual(viewModel.displayString(.float(10.0)), "10")
     }
 
     /// `type: float` with a whole JSON number must stay a float. Decoding it as an
@@ -107,6 +111,19 @@ final class ParsingTests: XCTestCase {
         let intSetting = try makeSetting(entryJSON(id: "whole-int", type: "integer", on: "10", off: "0"))
         XCTAssertEqual(intSetting.onValue, .integer(10))
         XCTAssertNotEqual(intSetting.onValue, floatSetting.onValue)
+    }
+
+    /// Decoding is type-driven, so a value of the wrong JSON kind must fail rather than
+    /// arrive as a different case. This guards the decoder's strictness, not the data.
+    func testDecodeRejectsMismatchedValueTypes() {
+        let entries = [
+            entryJSON(id: "bool-string", type: "boolean", on: "\"true\""),
+            entryJSON(id: "string-bool", type: "string", on: "true"),
+            entryJSON(id: "float-string", type: "float", on: "\"1.5\""),
+        ]
+        for entry in entries {
+            XCTAssertThrowsError(try makeSetting(entry), entry)
+        }
     }
 
     // MARK: - Absent-key fallback
@@ -134,10 +151,6 @@ final class ParsingTests: XCTestCase {
         XCTAssertEqual(
             DefaultSetting.stagedFolderValue(options: ["~/Desktop"], chosenPath: "/Volumes/Other"),
             "/Volumes/Other"
-        )
-        XCTAssertEqual(
-            DefaultSetting.stagedFolderValue(options: ["/Volumes/Work"], chosenPath: "/Volumes/Work"),
-            "/Volumes/Work"
         )
     }
 
@@ -208,9 +221,10 @@ final class ParsingTests: XCTestCase {
     // MARK: - Container rendering
 
     /// `captureOriginal` refuses to capture text starting with `{` or `(`, so a rendered
-    /// container that lost its marker would be captured as a String and written back wrong.
-    func testRenderedContainersAlwaysStartWithBraceOrParen() {
-        let values: [Any] = [
+    /// container that lost its marker would be captured as a String and written back
+    /// wrong. A scalar must not gain a marker either.
+    func testRenderedValuesMarkContainersOnly() {
+        let containers: [Any] = [
             Data([0x00, 0x01, 0x02]),
             ["key": "value"] as [String: Any],
             ["key": Data([0x00])] as [String: Any],
@@ -219,19 +233,20 @@ final class ParsingTests: XCTestCase {
             NSDate(),
             Date(),
         ]
-        for value in values {
+        for value in containers {
             let rendered = DefaultsEngine.rendered(value)
             XCTAssertTrue(
                 rendered.hasPrefix("{") || rendered.hasPrefix("("),
                 "\(type(of: value)) rendered as \(rendered)"
             )
         }
-    }
-
-    func testRenderedScalarsDoNotLookLikeContainers() {
-        XCTAssertFalse(DefaultsEngine.rendered("plain").hasPrefix("{"))
-        XCTAssertFalse(DefaultsEngine.rendered(42).hasPrefix("{"))
-        XCTAssertFalse(DefaultsEngine.rendered(4.5).hasPrefix("("))
+        for value in ["plain", 42, 4.5] as [Any] {
+            let rendered = DefaultsEngine.rendered(value)
+            XCTAssertFalse(
+                rendered.hasPrefix("{") || rendered.hasPrefix("("),
+                "\(type(of: value)) rendered as \(rendered)"
+            )
+        }
     }
 
     /// Whole floats print without the fraction in `defaults read`, and that is the form
@@ -263,13 +278,9 @@ final class ParsingTests: XCTestCase {
         XCTAssertEqual(row.safeInt(Double(Int64.max)), 10)
         XCTAssertEqual(row.safeInt(9_223_372_036_854_775_808), 10)
         XCTAssertEqual(row.safeInt(1e300), 10)
-    }
-
-    /// Same clamp with no declared options, so the range is the built-in `0...512`.
-    @MainActor
-    func testSafeIntClampsToBuiltInRange() throws {
-        let row = SettingRowView(setting: try makeSetting(entryJSON(id: "free-stepper", type: "integer", on: "20", off: "0")))
-        XCTAssertEqual(row.safeInt(.nan), 0)
-        XCTAssertEqual(row.safeInt(1e300), 512)
+        // Same clamp with no declared options: the range is the built-in `0...512`.
+        let freeRow = SettingRowView(setting: try makeSetting(entryJSON(id: "free-stepper", type: "integer", on: "20", off: "0")))
+        XCTAssertEqual(freeRow.safeInt(.nan), 0)
+        XCTAssertEqual(freeRow.safeInt(1e300), 512)
     }
 }

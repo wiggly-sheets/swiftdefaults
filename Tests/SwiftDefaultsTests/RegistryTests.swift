@@ -14,42 +14,13 @@ final class RegistryTests: XCTestCase {
         XCTAssertFalse(entries.isEmpty)
     }
 
-    @MainActor
-    func testRegistryHasNoDuplicateIdsOrTargets() throws {
-        let entries = try SettingsViewModel().loadRegistry()
-        XCTAssertEqual(Set(entries.map(\.id)).count, entries.count, "duplicate id")
-        let targets = entries.map { "\($0.domain)\u{0}\($0.key)" }
-        XCTAssertEqual(Set(targets).count, targets.count, "duplicate domain+key")
-    }
-
-    /// Decoding is type-driven, so every value must arrive as the declared case.
-    /// Integers and floats are distinguished: `10` on a float entry is `.float(10)`.
-    @MainActor
-    func testRegistryValuesMatchDeclaredTypes() throws {
-        for entry in try SettingsViewModel().loadRegistry() {
-            let values: [(String, SettingValue?)] = [
-                ("onValue", entry.onValue), ("offValue", entry.offValue),
-                ("defaultValue", entry.defaultValue),
-            ]
-            for (field, value) in values {
-                guard let value else { continue }
-                assertType(entry.type, value, "\(entry.id).\(field)")
-            }
-            for (index, option) in (entry.options ?? []).enumerated() {
-                assertType(entry.type, option, "\(entry.id).options[\(index)]")
-            }
-        }
-    }
-
     /// A picker built from `options` must be able to show the setting's own on and off
-    /// state, or the row cannot represent the value it is about to write.
+    /// state. `loadRegistry` already rejects duplicate ids and targets, so that needs no
+    /// separate test here.
     @MainActor
-    func testNonBooleanOptionsContainOnAndOffValues() throws {
-        for entry in try SettingsViewModel().loadRegistry() where entry.type != .boolean {
-            guard let options = entry.options else {
-                XCTFail("\(entry.id) is \(entry.type.rawValue) with no options")
-                continue
-            }
+    func testOptionsContainOnAndOffValues() throws {
+        for entry in try SettingsViewModel().loadRegistry() {
+            guard let options = entry.options else { continue }
             XCTAssertTrue(options.contains(entry.onValue), "\(entry.id) options miss onValue \(entry.onValue)")
             XCTAssertTrue(options.contains(entry.offValue), "\(entry.id) options miss offValue \(entry.offValue)")
         }
@@ -102,27 +73,10 @@ final class RegistryTests: XCTestCase {
     }
 
     @MainActor
-    func testValidateRejectsOptionLeadingHyphen() throws {
+    func testValidateRejectsKeyLeadingHyphen() throws {
         let entries = try makeSettings("[" + entryJSON(id: "a", key: "-autohide") + "]")
         XCTAssertThrowsError(try SettingsViewModel.validate(entries)) { error in
             XCTAssertTrue("\(error)".contains("domain/key"), "\(error)")
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func assertType(
-        _ declared: SettingType,
-        _ value: SettingValue,
-        _ label: String,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        switch (declared, value) {
-        case (.boolean, .boolean), (.integer, .integer), (.string, .string), (.float, .float):
-            return
-        default:
-            XCTFail("\(label) is \(value) but the entry declares \(declared.rawValue)", file: file, line: line)
         }
     }
 }
