@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
-    @Namespace private var toolbarNamespace
 
     var body: some View {
         NavigationSplitView {
@@ -14,7 +13,7 @@ struct ContentView: View {
                 }
                 .disabled(viewModel.isApplying)
                 .searchable(text: $viewModel.searchText)
-                .navigationTitle(viewModel.selectedCategory ?? "All")
+                .navigationTitle(viewModel.selectedTitle)
                 .task {
                     await viewModel.load()
                 }
@@ -49,39 +48,11 @@ struct ContentView: View {
 
     @ViewBuilder
     private var toolbarContent: some View {
-        if #available(macOS 26.0, *) {
-            GlassEffectContainer(spacing: 8) {
-                if viewModel.hasPending {
-                    pendingChip
-                        .glassEffectID("pending", in: toolbarNamespace)
-                        .glassEffectTransition(.matchedGeometry)
-                }
-                resetButton
-                    .buttonStyle(.glass)
-                    .glassEffectID("reset", in: toolbarNamespace)
-                applyButton
-                    .buttonStyle(.glassProminent)
-                    .glassEffectID("apply", in: toolbarNamespace)
-            }
-            .animation(.smooth(duration: 0.25), value: viewModel.hasPending)
-            .animation(.smooth(duration: 0.25), value: viewModel.pendingValues.count)
-        } else {
-            if viewModel.hasPending {
-                pendingLabel
-            }
-            resetButton
-            applyButton
+        if viewModel.hasPending {
+            pendingLabel
         }
-    }
-
-    /// The pending count sits on its own glass capsule, so it can morph into the
-    /// Apply button as edits appear and disappear.
-    @available(macOS 26.0, *)
-    private var pendingChip: some View {
-        pendingLabel
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .glassEffect(.regular, in: .capsule)
+        resetButton
+        applyButton
     }
 
     private var pendingLabel: some View {
@@ -104,6 +75,7 @@ struct ContentView: View {
         Button("Apply") {
             Task { await viewModel.applyPending() }
         }
+        .buttonStyle(.borderedProminent)
         .keyboardShortcut(.defaultAction)
         .disabled(!viewModel.hasPending || viewModel.isApplying)
         .help("Write all pending edits")

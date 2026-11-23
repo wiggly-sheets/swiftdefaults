@@ -7,15 +7,15 @@ struct SidebarView: View {
     @State private var collapsedCategories: Set<String> = []
 
     var body: some View {
-        List(selection: $viewModel.selectedCategory) {
+        List(selection: $viewModel.selection) {
             Label("All", systemImage: "square.grid.2x2")
-                .tag(nil as String?)
+                .tag(nil as SidebarSelection?)
             ForEach(viewModel.groupedCategories) { group in
                 DisclosureGroup(isExpanded: groupBinding(for: group.name)) {
                     ForEach(group.categories) { category in
                         if category.subcategories.isEmpty {
                             Label(category.name, systemImage: icon(for: category.name))
-                                .tag(category.name as String?)
+                                .tag(SidebarSelection.category(category.name))
                         } else {
                             DisclosureGroup(isExpanded: categoryBinding(for: category.name)) {
                                 ForEach(category.subcategories) { subcategory in
@@ -25,7 +25,7 @@ struct SidebarView: View {
                                         Text("\(subcategory.count)")
                                             .foregroundStyle(.secondary)
                                     }
-                                    .tag(category.name as String?)
+                                    .tag(SidebarSelection.subcategory(category: category.name, name: subcategory.name))
                                 }
                             } label: {
                                 Label(category.name, systemImage: icon(for: category.name))

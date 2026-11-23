@@ -42,13 +42,19 @@ struct CategoryGroup: Identifiable, Sendable {
     var id: String { name }
 }
 
+/// What the sidebar has selected: a whole category or one of its subcategories.
+enum SidebarSelection: Hashable, Sendable {
+    case category(String)
+    case subcategory(category: String, name: String)
+}
+
 /// Loads the JSON registry, tracks live state, applies and reverts tweaks.
 @MainActor
 final class SettingsViewModel: ObservableObject {
     @Published private(set) var settings: [DefaultSetting] = []
     @Published private(set) var isOn: [String: Bool] = [:]
     @Published private(set) var currentValues: [String: String] = [:]
-    @Published var selectedCategory: String?
+    @Published var selection: SidebarSelection?
     @Published var searchText = ""
     @Published private(set) var errorMessage: String?
     @Published private(set) var isLoading = false
@@ -103,9 +109,12 @@ final class SettingsViewModel: ObservableObject {
     var filteredSettings: [DefaultSetting] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let scoped: [DefaultSetting]
-        if let selectedCategory {
-            scoped = settings.filter { $0.category == selectedCategory }
-        } else {
+        switch selection {
+        case .category(let name):
+            scoped = settings.filter { $0.category == name }
+        case .subcategory(let category, let name):
+            scoped = settings.filter { $0.category == category && $0.subcategory == name }
+        case nil:
             scoped = settings
         }
         if query.isEmpty {
@@ -118,6 +127,16 @@ final class SettingsViewModel: ObservableObject {
                 || setting.category.localizedCaseInsensitiveContains(query)
                 || setting.domain.localizedCaseInsensitiveContains(query)
                 || setting.id.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    /// Title for the detail pane: the picked subcategory, else its category, else All.
+    var selectedTitle: String {
+        switch selection {
+        case .category(let name), .subcategory(_, let name):
+            name
+        case nil:
+            "All"
         }
     }
 
@@ -396,8 +415,6 @@ final class SettingsViewModel: ObservableObject {
         pendingValues = pendingValues.filter { $0.value != newCurrent[$0.key] }
         if let firstError {
             errorMessage = "\(failureCount) of \(all.count) reads failed: \(firstError)"
-        } else {
-            errorMessage = nil
         }
     }
 
