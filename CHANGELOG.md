@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-23
+
 ### Added
 
 - Liquid Glass now renders natively on macOS 26 and 27, built against the macOS 27.2 SDK. The toolbar keeps a plain Apply and Reset group and the row status dot is a tinted glass bead. macOS 15 and later still build and run the same binary with the plain controls.
