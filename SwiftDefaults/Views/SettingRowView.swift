@@ -25,6 +25,7 @@ struct GlassStatusCircle: View {
 struct SettingRowView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
     let setting: DefaultSetting
+    @AppStorage("showDescriptions") private var showDescriptions = true
     @State private var draft: String?
     @FocusState private var textFocused: Bool
 
@@ -40,17 +41,19 @@ struct SettingRowView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(setting.title)
                     .font(.headline)
-                Text(setting.description)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let app = setting.appToRestart {
-                    Text("Takes effect after \(app) relaunches.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                } else if setting.requiresRelaunch == true {
-                    Text("Takes effect after relaunch or logout.")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+                if showDescriptions {
+                    Text(setting.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let app = setting.appToRestart {
+                        Text("Takes effect after \(app) relaunches.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    } else if setting.requiresRelaunch == true {
+                        Text("Takes effect after relaunch or logout.")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
             Spacer()
@@ -84,7 +87,9 @@ struct SettingRowView: View {
         } else if let options = setting.options {
             let tags = options.map { viewModel.displayString($0) }
             HStack(spacing: 8) {
-                if tags.count <= 3 {
+                // Long option text overlaps in a segmented control, so those become a
+                // menu; short choices stay one click away.
+                if tags.count <= 3 && tags.allSatisfy({ $0.count <= 12 }) {
                     optionPicker(tags: tags)
                         .pickerStyle(.segmented)
                 } else {

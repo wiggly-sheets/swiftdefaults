@@ -9,5 +9,9 @@ struct SwiftDefaultsApp: App {
             ContentView()
                 .environmentObject(viewModel)
         }
+        Settings {
+            SettingsView()
+                .environmentObject(viewModel)
+        }
     }
 }

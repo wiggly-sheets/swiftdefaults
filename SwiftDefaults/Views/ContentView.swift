@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var viewModel: SettingsViewModel
+    @AppStorage("confirmReset") private var confirmReset = true
+    @State private var isConfirmingReset = false
 
     var body: some View {
         NavigationSplitView {
@@ -21,6 +23,14 @@ struct ContentView: View {
                     ToolbarItemGroup(placement: .primaryAction) {
                         toolbarContent
                     }
+                }
+                .alert("Reset applied tweaks?", isPresented: $isConfirmingReset) {
+                    Button("Reset", role: .destructive) {
+                        Task { await viewModel.resetAll() }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Discard pending edits and restore every tweak this session applied.")
                 }
                 if viewModel.isLoading || viewModel.isApplying {
                     ProgressView()
@@ -44,6 +54,21 @@ struct ContentView: View {
                 Text(viewModel.errorMessage ?? "")
             }
         }
+        .alert("Relaunch to finish", isPresented: Binding(
+            get: { !viewModel.relaunchApps.isEmpty || viewModel.relaunchNeedsLogout },
+            set: { presented in
+                if !presented {
+                    viewModel.dismissRelaunchPrompt()
+                }
+            }
+        )) {
+            Button("Relaunch Now") {
+                Task { await viewModel.relaunchAppsNow() }
+            }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text(viewModel.relaunchMessage)
+        }
     }
 
     @ViewBuilder
@@ -65,7 +90,11 @@ struct ContentView: View {
 
     private var resetButton: some View {
         Button("Reset") {
-            Task { await viewModel.resetAll() }
+            if confirmReset {
+                isConfirmingReset = true
+            } else {
+                Task { await viewModel.resetAll() }
+            }
         }
         .disabled(viewModel.isResetDisabled || viewModel.isApplying)
         .help("Discard pending edits and restore originals")

@@ -197,3 +197,65 @@ extension DefaultSetting {
         return chosenPath
     }
 }
+
+
+extension SettingValue {
+    /// Parses the text form under the declared type. Booleans accept both spellings
+    /// `defaults read` prints: 1/0 in most domains, true/false in others.
+    static func parse(_ text: String, as type: SettingType) -> SettingValue? {
+        switch type {
+        case .boolean:
+            return boolean(text).map(SettingValue.boolean)
+        case .integer:
+            guard let number = Int(text) else { return nil }
+            return .integer(number)
+        case .string:
+            return .string(text)
+        case .float:
+            guard let number = Double(text), number.isFinite else { return nil }
+            return .float(number)
+        }
+    }
+
+    static func boolean(_ text: String) -> Bool? {
+        switch text {
+        case "1", "true": true
+        case "0", "false": false
+        default: nil
+        }
+    }
+
+    /// Text the app shows and stages: booleans as 1/0, whole floats without the fraction.
+    var canonicalText: String {
+        switch self {
+        case .boolean(let enabled):
+            return enabled ? "1" : "0"
+        case .integer(let number):
+            return String(number)
+        case .string(let text):
+            return text
+        case .float(let number):
+            if number.isFinite, number == number.rounded(), let whole = Int(exactly: number) {
+                return String(whole)
+            }
+            return String(number)
+        }
+    }
+
+    /// Canonical staged form of typed text: strings keep edge spaces, other types trim
+    /// and fold a whole float to an integer.
+    static func canonicalText(_ text: String, as type: SettingType) -> String {
+        if type == .string {
+            return text
+        }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if type == .integer,
+           let number = Double(trimmed),
+           number == number.rounded(),
+           number.isFinite,
+           let whole = Int(exactly: number) {
+            return String(whole)
+        }
+        return trimmed
+    }
+}

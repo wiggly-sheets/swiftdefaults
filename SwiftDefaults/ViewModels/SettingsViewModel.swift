@@ -62,6 +62,10 @@ final class SettingsViewModel: ObservableObject {
     /// In-flight apply, reset or single revert. Set by the view model itself so every
     /// entry point takes part in the same re-entry guard.
     @Published private(set) var isApplying = false
+    /// Apps that must relaunch for the values just written to show. Filled only by a
+    /// write, never at load, so the prompt appears after the user asked for a change.
+    @Published private(set) var relaunchApps: [String] = []
+    @Published private(set) var relaunchNeedsLogout = false
 
     /// Parsed values read at load. Ids in `capturedIds` with no entry here were absent on disk.
     private var originalValues: [String: SettingValue] = [:]
@@ -200,19 +204,7 @@ final class SettingsViewModel: ObservableObject {
     /// Canonical staged form: trim whitespace, fold whole integers ("20.0" -> "20").
     /// String values keep edge spaces verbatim, and a leading `~/` as macOS stores it.
     private func canonicalStaged(_ setting: DefaultSetting, _ stringValue: String) -> String {
-        if setting.type == .string {
-            return stringValue
-        }
-        let trimmed = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if setting.type == .integer,
-           let number = Double(trimmed),
-           number == number.rounded(),
-           number.isFinite,
-           let intValue = Int(exactly: number)
-        {
-            return String(intValue)
-        }
-        return trimmed
+        SettingValue.canonicalText(stringValue, as: setting.type)
     }
 
     func discardPending() {
@@ -251,6 +243,7 @@ final class SettingsViewModel: ObservableObject {
         }
         var nextCurrent = currentValues
         var nextOn = isOn
+        var writtenIds: Set<String> = []
         for offset in stride(from: 0, to: work.count, by: 8) {
             let chunk = Array(work[offset..<min(offset + 8, work.count)])
             await withTaskGroup(of: (Int, SettingValue?, String?).self) { group in
@@ -274,6 +267,7 @@ final class SettingsViewModel: ObservableObject {
                     nextCurrent[item.id] = canonicalString(written)
                     nextOn[item.id] = matchesOn(current: item.staged, onValue: item.setting.onValue)
                     appliedIds.insert(item.id)
+                    writtenIds.insert(item.id)
                 }
             }
             currentValues = nextCurrent
@@ -281,6 +275,7 @@ final class SettingsViewModel: ObservableObject {
         }
         pendingValues = failed
         errorMessage = lastError
+        updateRelaunchPrompt(for: writtenIds)
         return failed.isEmpty
     }
 
@@ -308,6 +303,7 @@ final class SettingsViewModel: ObservableObject {
         var nextCurrent = currentValues
         var nextOn = isOn
         var nextPending = pendingValues
+        var revertedIds: Set<String> = []
         for offset in stride(from: 0, to: work.count, by: 8) {
             let chunk = Array(work[offset..<min(offset + 8, work.count)])
             await withTaskGroup(of: (Int, String?).self) { group in
@@ -330,6 +326,7 @@ final class SettingsViewModel: ObservableObject {
                     let item = chunk[index]
                     recordRevert(item.setting, original: item.original,
                                  current: &nextCurrent, on: &nextOn, pending: &nextPending)
+                    revertedIds.insert(item.setting.id)
                 }
             }
             currentValues = nextCurrent
@@ -337,6 +334,7 @@ final class SettingsViewModel: ObservableObject {
             pendingValues = nextPending
         }
         errorMessage = firstError
+        updateRelaunchPrompt(for: revertedIds)
         return ok
     }
 
@@ -437,29 +435,14 @@ final class SettingsViewModel: ObservableObject {
     }
 
     func value(for setting: DefaultSetting, stringValue: String) -> SettingValue? {
-        switch setting.type {
-        case .boolean:
-            return boolean(stringValue).map(SettingValue.boolean)
-        case .integer:
-            guard let number = Int(stringValue) else { return nil }
-            return .integer(number)
-        case .string:
-            return .string(stringValue)
-        case .float:
-            guard let number = Double(stringValue), number.isFinite else { return nil }
-            return .float(number)
-        }
+        SettingValue.parse(stringValue, as: setting.type)
     }
 
     /// `defaults read` prints a boolean as 1/0 in some domains and as true/false in
     /// others — `com.apple.finder CreateDesktop` prints `true`, `com.apple.dock
     /// autohide` prints `1` — so both spellings parse, whichever path read the value.
     func boolean(_ text: String) -> Bool? {
-        switch text {
-        case "1", "true": return true
-        case "0", "false": return false
-        default: return nil
-        }
+        SettingValue.boolean(text)
     }
 
     /// Restores the value read at load, parsed through the declared type.
@@ -485,6 +468,7 @@ final class SettingsViewModel: ObservableObject {
             isOn = on
             pendingValues = pending
             errorMessage = nil
+            updateRelaunchPrompt(for: [setting.id])
             return true
         } catch {
             errorMessage = error.localizedDescription
@@ -565,20 +549,127 @@ final class SettingsViewModel: ObservableObject {
     /// Canonical form the app itself stages: booleans as 1/0, whole floats
     /// without the fraction (0.0 becomes "0").
     private func canonicalString(_ value: SettingValue) -> String {
-        switch value {
-        case .boolean(let enabled):
-            enabled ? "1" : "0"
-        case .integer(let number):
-            String(number)
-        case .string(let text):
-            text
-        case .float(let number):
-            if number.isFinite, number == number.rounded(), let intValue = Int(exactly: number) {
-                String(intValue)
+        value.canonicalText
+    }
+
+
+    // MARK: - Relaunch
+
+    /// Prompt content for the ids just written: the apps their registry entries name,
+    /// and whether any of them needs a logout instead of a relaunch.
+    private func updateRelaunchPrompt(for ids: Set<String>) {
+        let touched = settings.filter { ids.contains($0.id) }
+        relaunchApps = Array(Set(touched.compactMap(\.appToRestart))).sorted()
+        relaunchNeedsLogout = touched.contains { $0.requiresRelaunch == true }
+    }
+
+    func dismissRelaunchPrompt() {
+        relaunchApps = []
+        relaunchNeedsLogout = false
+    }
+
+    /// Names the apps and their side effects plainly; this text is the only warning
+    /// before a process is asked to quit.
+    var relaunchMessage: String {
+        var parts: [String] = []
+        if !relaunchApps.isEmpty {
+            let names = relaunchApps.map { $0 == "SystemUIServer" ? "SystemUIServer (menu bar)" : $0 }
+            parts.append(
+                "\(names.joined(separator: ", ")) must relaunch to pick up the new values. Open windows close, and unsaved work in those apps can be lost."
+            )
+        }
+        if relaunchNeedsLogout {
+            parts.append("Some changes take effect only after a logout or restart.")
+        }
+        return parts.joined(separator: "\n\n")
+    }
+
+    /// Runs only from the prompt button; a failure is reported, never retried.
+    func relaunchAppsNow() async {
+        let apps = relaunchApps
+        dismissRelaunchPrompt()
+        guard !apps.isEmpty else { return }
+        let failures = await AppRelaunch.relaunch(apps)
+        if !failures.isEmpty {
+            errorMessage = "Could not relaunch \(failures.joined(separator: ", ")). Quit and reopen them yourself."
+        }
+    }
+
+    // MARK: - Profiles
+
+    /// Keys this Mac may export: present on disk, applied this session, or staged.
+    private var exportableIds: Set<String> {
+        var ids = appliedIds.union(pendingValues.keys)
+        for id in capturedIds where originalValues[id] != nil {
+            ids.insert(id)
+        }
+        return ids
+    }
+
+    /// JSON data for the export panel. Exports what the window shows, not a re-read,
+    /// so staged edits travel too.
+    func profileData() throws -> Data {
+        let texts = Dictionary(uniqueKeysWithValues: settings.map { ($0.id, stagedString($0)) })
+        let profile = SettingsProfile.make(
+            settings: settings,
+            texts: texts,
+            include: exportableIds,
+            appVersion: Self.appVersion,
+            macOSVersion: Self.macOSVersion
+        )
+        guard !profile.values.isEmpty else { throw ProfileError.empty }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(profile)
+    }
+
+    /// Resolves the file against this registry and stages every usable value. Nothing
+    /// is written here; the normal Apply path does that, so revert still works.
+    func importProfile(_ data: Data) throws -> ProfileImportResult {
+        guard !isApplying else { throw ProfileError.busy }
+        let profile: SettingsProfile
+        do {
+            profile = try JSONDecoder().decode(SettingsProfile.self, from: data)
+        } catch {
+            throw ProfileError.invalidFile
+        }
+        guard profile.format <= SettingsProfile.currentFormat else {
+            throw ProfileError.newerFormat(profile.format)
+        }
+        var plan = SettingsProfile.plan(profile, settings: settings)
+        if let note = SettingsProfile.versionNote(
+            profile: profile,
+            currentMacOSVersion: Self.macOSVersion
+        ) {
+            plan.warnings.insert(note, at: 0)
+        }
+        let byId = Dictionary(uniqueKeysWithValues: settings.map { ($0.id, $0) })
+        var staged = 0
+        var unchanged = 0
+        for (id, text) in plan.values.sorted(by: { $0.key < $1.key }) {
+            guard let setting = byId[id] else { continue }
+            stageOption(setting, stringValue: text)
+            if pendingValues[id] != nil {
+                staged += 1
             } else {
-                String(number)
+                unchanged += 1
             }
         }
+        return ProfileImportResult(
+            staged: staged,
+            unchanged: unchanged,
+            skipped: plan.skipped,
+            warnings: plan.warnings
+        )
+    }
+
+    private static var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+    }
+
+    private static var macOSVersion: String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
     }
 
     func loadRegistry() throws -> [DefaultSetting] {
