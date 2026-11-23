@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The release ships one disk image per architecture: `release/SwiftDefaults-<version>-arm64.dmg` for Apple silicon and `release/SwiftDefaults-<version>-x86_64.dmg` for Intel. `release/checksums.txt` holds one `shasum -a 256` line per disk image.
+
+### Changed
+
+- `make app` writes `SwiftDefaults-arm64.app` and `SwiftDefaults-x86_64.app` instead of a single `SwiftDefaults.app`, and `make dmg` builds both disk images. `make install` and `make run` copy the bundle that matches `uname -m`, and `make verify` checks every built bundle against the architecture in its name.
+- The CI job builds both architectures and verifies both bundles. The release workflow publishes both disk images with `checksums.txt`, and the release notes carry its contents.
+
 ## [1.1.0] - 2026-11-23
 
 ### Added

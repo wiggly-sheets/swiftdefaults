@@ -1,9 +1,9 @@
 # Release pipeline for SwiftDefaults.
 # Gate order: tag -> tests -> artifacts -> verify -> notes -> publish.
-# Nothing is published unless `make test` passes and the built bundle ships the
+# Nothing is published unless `make test` passes and each built bundle ships the
 # tweak registry. The packaging lives in the Makefile: `make app` assembles and
-# signs the bundle, `make release-artifacts` builds the disk image and its
-# checksum file, `make verify` checks the result.
+# signs the arm64 and the x86_64 bundle, `make release-artifacts` builds both
+# disk images and release/checksums.txt, `make verify` checks the result.
 
 name: SwiftDefaults Release
 
@@ -78,7 +78,7 @@ jobs:
             echo "## Checksums"
             echo ""
             echo '```'
-            cat release/*.sha256
+            cat release/checksums.txt
             echo '```'
           } >> release-notes.md
 
@@ -91,5 +91,5 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             release/*.dmg
-            release/*.sha256
+            release/checksums.txt
           fail_on_unmatched_files: true

@@ -83,7 +83,7 @@ You do not need to know what a domain or plist key is. But if you want to check,
 
 ## Download
 
-Download `SwiftDefaults-1.0.1.dmg` for macOS 15+ (Apple Silicon) from the [Releases page](https://github.com/wiggly-sheets/swiftdefaults/releases).
+Download the disk image for your Mac from the [Releases page](https://github.com/wiggly-sheets/swiftdefaults/releases): `SwiftDefaults-<version>-arm64.dmg` for Apple silicon, `SwiftDefaults-<version>-x86_64.dmg` for Intel, both macOS 15+.
 
 It is **ad-hoc signed and not notarized**: the Makefile signs the bundle ad-hoc when it builds it, so no developer identity is attached to it. macOS may still block the first open, because the app is not notarized. Control-click the app in Finder and choose Open, or remove the quarantine attribute:
 
@@ -93,10 +93,10 @@ xattr -dr com.apple.quarantine /Applications/SwiftDefaults.app
 
 Only run the quarantine command for apps you downloaded from a source you trust. Developer ID signing and notarization are on the [Roadmap](#roadmap).
 
-The release page also carries a checksum file, `SwiftDefaults-1.0.1.dmg.sha256`. Verify the download against it:
+The release page also carries a checksum file, `checksums.txt`, with one line per disk image. Download it next to the disk image and verify the download against it:
 
 ```bash
-shasum -a 256 -c SwiftDefaults-1.0.1.dmg.sha256
+shasum -a 256 -c checksums.txt
 ```
 
 Or install via Homebrew:
@@ -154,12 +154,11 @@ git pull
 make run
 ```
 
-If you copied `SwiftDefaults.app` to Applications, rebuild and replace it:
+If you installed with `make install`, rebuild and replace it:
 
 ```bash
 git pull
-make app
-cp -r SwiftDefaults.app /Applications/
+make install
 ```
 
 Your revert history is per-launch (in memory), so updating resets it. Applied system settings are untouched by updates.
@@ -170,7 +169,7 @@ Your revert history is per-launch (in memory), so updating resets it. Applied sy
 
 ### Prerequisites
 
-- macOS 15 or later (Apple Silicon; see [Requirements](#requirements))
+- macOS 15 or later on Apple silicon or Intel (see [Requirements](#requirements))
 - Swift 6 toolchain (`swift --version` should print 6.x; ships with Xcode 16+ or swift.org)
 - No Xcode project step needed — Swift Package Manager is canonical
 
@@ -202,19 +201,23 @@ swift run
 |--------|---------|--------|
 | `build` | `swift build` | Debug binary in `.build/debug/` |
 | `test` | changelog check + `swift test` | Runs the test suite |
-| `verify` | checks the built bundle | Architecture, registry, version and signature |
+| `verify` | checks each built bundle | Per-bundle architecture, registry, version and signature |
 | `run` | `make install` then `open` | Installs and launches the app |
 | `install` | `make app` then copies | `~/Applications/SwiftDefaults.app` |
-| `app` | builds + assembles + signs `.app` | `SwiftDefaults.app` in repo root |
+| `app` | builds + assembles + signs both `.app` bundles | `SwiftDefaults-arm64.app` and `SwiftDefaults-x86_64.app` in repo root |
+| `app-arm` | builds + assembles + signs the arm64 `.app` | `SwiftDefaults-arm64.app` in repo root |
+| `app-intel` | builds + assembles + signs the x86_64 `.app` | `SwiftDefaults-x86_64.app` in repo root |
 | `app-bundle-debug` | builds + assembles `.app` | `SwiftDefaults-Debug.app` in repo root |
 | `run-bundle-debug` | builds + assembles `.app`, then opens it | Runs `SwiftDefaults-Debug.app` |
-| `dmg` | `make app` + `hdiutil` | `release/SwiftDefaults-<version>.dmg` |
-| `release-artifacts` | `make dmg` + `shasum` + `shasum -c` | The DMG and its verified `.sha256` |
+| `dmg` | `make app` + `hdiutil` | `release/SwiftDefaults-<version>-arm64.dmg` and `release/SwiftDefaults-<version>-x86_64.dmg` |
+| `dmg-arm` | `make app-arm` + `hdiutil` | `release/SwiftDefaults-<version>-arm64.dmg` |
+| `dmg-intel` | `make app-intel` + `hdiutil` | `release/SwiftDefaults-<version>-x86_64.dmg` |
+| `release-artifacts` | `make dmg` + `shasum` + `shasum -c` | Both disk images and their verified `release/checksums.txt` |
 | `release-notes VERSION=x.y.z` | prints the changelog section | Release body |
 | `release VERSION=x.y.z` | bump, test, build, verify, commit, tag | Tag `v<x.y.z>`, prints the push commands |
 | `clean` | removes the build output | Clears `.build/`, the bundles and `release/` |
 
-`make app` wraps the release binary with `Info.plist`, `AppIcon.icns` and a resource bundle that carries `tweaks.json` into a launchable `SwiftDefaults.app`. The resource bundle ships in `Contents/Resources`, where the app reads it. The bundle holds nothing in the app root, because `codesign` seals only what lives in `Contents/`.
+`make app` wraps the release binary with `Info.plist`, `AppIcon.icns` and a resource bundle that carries `tweaks.json` into launchable `SwiftDefaults-arm64.app` and `SwiftDefaults-x86_64.app` bundles. `make install` and `make run` copy the bundle that matches `uname -m` into `~/Applications`. The resource bundle ships in `Contents/Resources`, where the app reads it. The bundle holds nothing in the app root, because `codesign` seals only what lives in `Contents/`.
 
 `make dmg` and `make release-artifacts` need a version, for example `make release-artifacts VERSION=1.2.3`. `make release VERSION=1.2.3` moves `[Unreleased]` to that version, runs the tests, builds and verifies the artifacts, commits the changelog bump and creates the tag `v1.2.3`. It prints the push commands and never pushes by itself.
 
@@ -238,7 +241,7 @@ jq '[.[].category] | unique' SwiftDefaults/Resources/tweaks.json
 ## Requirements
 
 - macOS 15.0 or later
-- Apple Silicon (arm64) only — the app and the DMG are built for arm64, and this is the only tested configuration
+- Apple silicon (arm64) or Intel (x86_64) — the release ships one disk image per architecture, and `make install` copies the bundle that matches the Mac it runs on
 - Write access to user defaults (no Full Disk Access, no sandbox entitlements beyond default)
 
 ---

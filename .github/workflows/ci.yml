@@ -32,10 +32,13 @@ jobs:
       - name: Test
         run: make test
 
-      - name: Package .app bundle
-        run: make app
+      - name: Package .app bundle (arm64)
+        run: make app-arm
 
-      # Checks the registry, the icon, the app root, the architecture and the
-      # signature in one place, so the same gate runs locally.
-      - name: Verify bundle
+      - name: Package .app bundle (x86_64)
+        run: make app-intel
+
+      # Checks both bundles: the registry, the icon, the app root, the
+      # architecture of each one and the signature, so the same gate runs locally.
+      - name: Verify bundles
         run: make verify

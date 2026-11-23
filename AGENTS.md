@@ -10,11 +10,11 @@
 - `SwiftDefaults/Resources/tweaks.json` — the tweak registry (93 entries, 21 categories, 16 subcategories across 7 fully split categories)
 - `SwiftDefaults/Info.plist` — bundle metadata (`LSMinimumSystemVersion` 15.0)
 - `Package.swift` — SPM executable target `SwiftDefaults` plus test target `SwiftDefaultsTests`, macOS 15, resources via `.process("Resources")`
-- `Makefile` — `help build test verify run install app app-bundle-debug run-bundle-debug dmg release-artifacts release-notes release clean`; assembles the `.app` and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand, signs the bundle ad-hoc, installs to `~/Applications`, builds and verifies the disk image and its checksum file
+- `Makefile` — `help build test verify run install app app-arm app-intel app-bundle-debug run-bundle-debug dmg dmg-arm dmg-intel release-artifacts release-notes release clean`; assembles the per-architecture `.app` bundles and the `SwiftDefaults_SwiftDefaults.bundle` resource bundle by hand, signs each bundle ad-hoc, installs the bundle for this Mac to `~/Applications`, builds and verifies both disk images and `release/checksums.txt`
 - `scripts/changelog.sh` — the shared changelog shape: `check`, `bump X.Y.Z`, `notes X.Y.Z`
 - `scripts/release.sh` — the release driver: bump the changelog, test, build, verify, commit the bump, tag
 - `Tests/SwiftDefaultsTests/` — `ParsingTests`, `RegistryTests`, `TestSupport` (27 tests)
-- `.github/workflows/ci.yml` — `make build`, `make test`, `make app`, `make verify` on push to main and on pull requests
+- `.github/workflows/ci.yml` — `make build`, `make test`, `make app-arm`, `make app-intel`, `make verify` on push to main and on pull requests
 - `.github/workflows/swiftdefaults-release.yml` — tag `v*` only: tests, `make release-artifacts`, `make verify`, `scripts/changelog.sh notes`, publish
 - `docs/ARCHITECTURE.md` — MVVM flow and restart handling
 - `CHANGELOG.md` — release notes, checked by `make test`
@@ -24,7 +24,7 @@
 
 - Swift Package Manager is canonical. `SwiftDefaults.xcodeproj` exists but is not authoritative.
 - Two targets: executable `SwiftDefaults` (path `SwiftDefaults/`) and test target `SwiftDefaultsTests` (path `Tests/SwiftDefaultsTests/`).
-- Resources: `tweaks.json` is processed via `.process("Resources")`. The `.app` does not ship SwiftPM's generated bundle: the `Makefile` builds `SwiftDefaults_SwiftDefaults.bundle` by hand in the classic macOS layout (`Contents/Info.plist`, `Contents/Resources/tweaks.json`, `Contents/Resources/AppIcon.icns`) and places it in `Contents/Resources`. The app reads that copy and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds neither. The bundle holds nothing in the app root: `codesign` seals only what lives in `Contents/`, so a file in the app root makes the signing fail with "unsealed contents present in the bundle root". `make app` signs the bundle ad-hoc (`codesign --force --sign - --options runtime`).
+- Resources: `tweaks.json` is processed via `.process("Resources")`. The `.app` does not ship SwiftPM's generated bundle: the `Makefile` builds `SwiftDefaults_SwiftDefaults.bundle` by hand in the classic macOS layout (`Contents/Info.plist`, `Contents/Resources/tweaks.json`, `Contents/Resources/AppIcon.icns`) and places it in `Contents/Resources`. The app reads that copy and keeps `Bundle.module` only as a fallback, because `Bundle.module` fatalErrors when it finds neither. The bundle holds nothing in the app root: `codesign` seals only what lives in `Contents/`, so a file in the app root makes the signing fail with "unsealed contents present in the bundle root". `make app` assembles `SwiftDefaults-arm64.app` and `SwiftDefaults-x86_64.app` and signs each bundle ad-hoc (`codesign --force --sign - --options runtime`).
 - Platforms: macOS 15+, Swift tools 6.0.
 
 ## Registry schema (`tweaks.json`)
@@ -82,9 +82,9 @@ make app
 jq length SwiftDefaults/Resources/tweaks.json
 ```
 
-`make app` builds the release binary, assembles `SwiftDefaults.app`, stamps the version when `VERSION=` is given, signs the bundle ad-hoc and verifies the signature. `make dmg` and `make release-artifacts` need a version: `make release-artifacts VERSION=1.2.3`.
+`make app` builds the release binary for arm64 and for x86_64 with `swift build -c release --arch <arch> --scratch-path .build/<arch>`, assembles `SwiftDefaults-arm64.app` and `SwiftDefaults-x86_64.app`, stamps the version when `VERSION=` is given, signs each bundle ad-hoc and verifies the signature. The per-architecture scratch directories exist because SwiftPM otherwise writes every architecture to the same output path. `make verify` checks every bundle it finds, or the bundles named in `BUNDLES=`, and holds each bundle to the architecture in its name. `make dmg` and `make release-artifacts` need a version: `make release-artifacts VERSION=1.2.3` writes `release/SwiftDefaults-<version>-arm64.dmg`, `release/SwiftDefaults-<version>-x86_64.dmg` and `release/checksums.txt`.
 
-Build through `make`, not a bare `swift build`. SwiftPM records the deployment target in the Mach-O's `LC_BUILD_VERSION` SDK field, and macOS uses that field to decide whether an app gets the Liquid Glass design. The Makefile restates the installed SDK version at link time; `vtool -show-build SwiftDefaults.app/Contents/MacOS/SwiftDefaults` must report `minos 15.0` and the current SDK (27.2 here).
+Build through `make`, not a bare `swift build`. SwiftPM records the deployment target in the Mach-O's `LC_BUILD_VERSION` SDK field, and macOS uses that field to decide whether an app gets the Liquid Glass design. The Makefile restates the installed SDK version at link time; `vtool -show-build SwiftDefaults-arm64.app/Contents/MacOS/SwiftDefaults` must report `minos 15.0` and the current SDK (27.2 here).
 
 Tests live in `Tests/SwiftDefaultsTests/` (27 tests): `ParsingTests` covers boolean and numeric parsing, absence detection, staging and container rendering; `RegistryTests` covers the shipped registry and `validate()`. Run them with `make test`.
 
@@ -101,4 +101,4 @@ Tests live in `Tests/SwiftDefaultsTests/` (27 tests): `ParsingTests` covers bool
 - Do not add shell-outs beyond `/usr/bin/defaults` (and `killall`-style restarts only if explicitly requested).
 - Do not force-restart apps or add auto-apply on launch.
 - Do not persist staged edits or captured originals to disk without an explicit task (currently in-memory by design).
-- Do not commit build artifacts (`.build/`, `SwiftDefaults.app`).
+- Do not commit build artifacts (`.build/`, `SwiftDefaults-arm64.app`, `SwiftDefaults-x86_64.app`).
