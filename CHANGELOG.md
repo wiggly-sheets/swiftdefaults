@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-23
+
 ### Added
 
 - The release ships one disk image per architecture: `release/SwiftDefaults-<version>-arm64.dmg` for Apple silicon and `release/SwiftDefaults-<version>-x86_64.dmg` for Intel. `release/checksums.txt` holds one `shasum -a 256` line per disk image.
